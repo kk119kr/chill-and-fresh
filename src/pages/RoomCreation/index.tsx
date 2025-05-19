@@ -13,14 +13,15 @@ const RoomCreation: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<'chill' | 'freshhh' | null>(null);
+  const [localIp, setLocalIp] = useState<string>('localhost');
   
   // Zustand 스토어에서 필요한 상태와 액션 가져오기
   const { roomId, participants, createRoom } = useGameStore();
   
   // QR 코드에 포함될 URL 생성
   const qrCodeValue = isRoomCreated 
-    ? `${window.location.origin}/join?roomId=${roomId}` 
-    : '';
+  ? `${window.location.origin.replace('localhost', getLocalIpAddress())}:${window.location.port}/join?roomId=${roomId}&serverIp=${getLocalIpAddress()}` 
+  : '';
   
   // 방 생성 함수
   const handleCreateRoom = async () => {
@@ -67,12 +68,22 @@ const RoomCreation: React.FC = () => {
   
   // 소켓 연결 해제
   useEffect(() => {
-    return () => {
-      if (!isRoomCreated) {
-        socketService.disconnect();
+    async function fetchLocalIp() {
+      try {
+        const response = await fetch('http://localhost:3001/api/local-ip');
+        const data = await response.json();
+        setLocalIp(data.ip || 'localhost');
+      } catch (error) {
+        console.error('로컬 IP 주소를 가져오는 중 오류 발생:', error);
       }
-    };
+    }
+    
+    if (isRoomCreated) {
+      fetchLocalIp();
+    }
   }, [isRoomCreated]);
+
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
