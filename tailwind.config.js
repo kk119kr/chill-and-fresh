@@ -7,7 +7,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 문서에 명시된 색상 팔레트
         text: {
           primary: '#353535',
           secondary: '#A0AEC0',
