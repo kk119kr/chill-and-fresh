@@ -4,50 +4,6 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import { networkInterfaces } from 'os';
 
-// 메시지 타입 정의 (클라이언트와 동일)
-type MessageType = 
-  | 'JOIN_REQUEST' 
-  | 'JOIN_CONFIRMED' 
-  | 'PLAYER_LIST_UPDATE' 
-  | 'GAME_START' 
-  | 'GAME_STATE_UPDATE' 
-  | 'TAP_EVENT' 
-  | 'ROUND_RESULT' 
-  | 'GAME_RESULT' 
-  | 'DISCONNECT_NOTICE'
-  | 'HOST_CHANGE';
-
-// 메시지 인터페이스 (클라이언트와 동일)
-interface Message {
-  type: MessageType;
-  sender: string;
-  timestamp: number;
-  payload: any;
-}
-
-// 참가자 인터페이스
-interface Participant {
-  id: string;
-  socketId: string;
-  nickname: string;
-  isHost: boolean;
-}
-
-// 방 인터페이스
-interface Room {
-  id: string;
-  hostId: string;
-  participants: Participant[];
-  gameState: {
-    status: 'waiting' | 'running' | 'finished';
-    type: 'chill' | 'freshhh' | null;
-    currentRound: number;
-    roundsTotal: number;
-    scores: Record<string, number>;
-    winner: string | null;
-  };
-}
-
 // 서버 설정
 const app = express();
 const server = http.createServer(app);
@@ -62,10 +18,10 @@ app.use(cors());
 app.use(express.json());
 
 // 방 목록 (메모리 저장)
-const rooms: Record<string, Room> = {};
+const rooms = {};
 
 // 로컬 IP 주소 가져오기
-const getLocalIpAddress = (): string | null => {
+const getLocalIpAddress = () => {
   const interfaces = networkInterfaces();
   
   // WiFi 또는 이더넷 네트워크 인터페이스 찾기
@@ -97,7 +53,7 @@ io.on('connection', (socket) => {
   console.log('새로운 연결:', socket.id);
   
   // 쿼리 파라미터 가져오기
-  const { roomId, isHost } = socket.handshake.query as { roomId?: string; isHost?: string };
+  const { roomId, isHost } = socket.handshake.query;
   
   // 연결 정보 검증
   if (!roomId) {
@@ -128,7 +84,7 @@ io.on('connection', (socket) => {
   }
   
   // 메시지 수신 처리
-  socket.on('message', (message: Message) => {
+  socket.on('message', (message) => {
     console.log('메시지 수신:', message.type);
     
     const room = rooms[roomId];
@@ -161,7 +117,7 @@ io.on('connection', (socket) => {
     console.log('연결 해제:', socket.id);
     
     // 방 검색
-    const room = rooms[roomId as string];
+    const room = rooms[roomId];
     if (!room) return;
     
     // 참가자 찾기
@@ -173,7 +129,7 @@ io.on('connection', (socket) => {
       room.participants.splice(index, 1);
       
       // 방에 알림
-      const disconnectMessage: Message = {
+      const disconnectMessage = {
         type: 'DISCONNECT_NOTICE',
         sender: 'server',
         timestamp: Date.now(),
@@ -193,7 +149,7 @@ io.on('connection', (socket) => {
         room.hostId = newHost.socketId;
         
         // 호스트 변경 알림
-        const hostChangeMessage: Message = {
+        const hostChangeMessage = {
           type: 'HOST_CHANGE',
           sender: 'server',
           timestamp: Date.now(),
@@ -216,11 +172,11 @@ io.on('connection', (socket) => {
 });
 
 // 참가 요청 처리
-function handleJoinRequest(socket: any, room: Room, message: Message) {
+function handleJoinRequest(socket, room, message) {
   const { nickname } = message.payload;
   
   // 참가자 추가
-  const newParticipant: Participant = {
+  const newParticipant = {
     id: message.sender,
     socketId: socket.id,
     nickname,
@@ -230,7 +186,7 @@ function handleJoinRequest(socket: any, room: Room, message: Message) {
   room.participants.push(newParticipant);
   
   // 참가 확인 메시지 전송
-  const confirmMessage: Message = {
+  const confirmMessage = {
     type: 'JOIN_CONFIRMED',
     sender: 'server',
     timestamp: Date.now(),
@@ -243,7 +199,7 @@ function handleJoinRequest(socket: any, room: Room, message: Message) {
   socket.emit('message', confirmMessage);
   
   // 모든 참가자에게 업데이트된 참가자 목록 전송
-  const updateMessage: Message = {
+  const updateMessage = {
     type: 'PLAYER_LIST_UPDATE',
     sender: 'server',
     timestamp: Date.now(),
@@ -260,7 +216,7 @@ function handleJoinRequest(socket: any, room: Room, message: Message) {
 }
 
 // 게임 시작 처리
-function handleGameStart(socket: any, room: Room, message: Message) {
+function handleGameStart(socket, room, message) {
   const { gameType } = message.payload;
   
   // 호스트 확인
@@ -284,7 +240,7 @@ function handleGameStart(socket: any, room: Room, message: Message) {
   });
   
   // 게임 시작 메시지 전송
-  const gameStartMessage: Message = {
+  const gameStartMessage = {
     type: 'GAME_START',
     sender: 'server',
     timestamp: Date.now(),
@@ -298,7 +254,7 @@ function handleGameStart(socket: any, room: Room, message: Message) {
 }
 
 // 탭 이벤트 처리
-function handleTapEvent(socket: any, room: Room, message: Message) {
+function handleTapEvent(socket, room, message) {
   // 탭 이벤트를 모든 참가자에게 전달
   forwardMessageToRoom(room.id, message);
   
@@ -306,7 +262,7 @@ function handleTapEvent(socket: any, room: Room, message: Message) {
 }
 
 // 방에 메시지 전달
-function forwardMessageToRoom(roomId: string, message: Message) {
+function forwardMessageToRoom(roomId, message) {
   io.to(roomId).emit('message', message);
 }
 
