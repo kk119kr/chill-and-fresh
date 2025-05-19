@@ -1,3 +1,4 @@
+// src/store/gameStore.ts 수정 (완성)
 import { create } from 'zustand';
 
 export interface Participant {
@@ -34,6 +35,7 @@ interface GameStore {
   leaveRoom: () => void;
   addParticipant: (participant: Participant) => void;
   removeParticipant: (participantId: string) => void;
+  setParticipants: (participants: Participant[]) => void; // 추가
   
   // 게임 액션
   startGame: (gameType: GameType) => void;
@@ -151,6 +153,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       participants: updatedParticipants,
       isHost: newHost || get().isHost,
+    });
+  },
+  
+  // 참가자 목록 설정 (추가된 함수)
+  setParticipants: (participants) => {
+    const currentNickname = get().nickname;
+    const currentParticipant = participants.find(p => p.nickname === currentNickname);
+    
+    set({
+      participants,
+      isHost: currentParticipant?.isHost || false,
+      participantNumber: currentParticipant ? 
+        participants.findIndex(p => p.nickname === currentNickname) + 1 : 
+        get().participantNumber
     });
   },
   

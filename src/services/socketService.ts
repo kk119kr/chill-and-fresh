@@ -1,3 +1,4 @@
+// src/services/socketService.ts 수정
 import { io, Socket } from 'socket.io-client';
 import { useGameStore, Participant, GameType } from '../store/gameStore';
 
@@ -12,7 +13,8 @@ export type MessageType =
   | 'ROUND_RESULT' 
   | 'GAME_RESULT' 
   | 'DISCONNECT_NOTICE'
-  | 'HOST_CHANGE';
+  | 'HOST_CHANGE'
+  | 'ROOM_CREATED';  // 추가된 메시지 타입
 
 // 메시지 인터페이스
 export interface Message {
@@ -29,21 +31,34 @@ class SocketService {
   private isHost: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
+  private connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' = 'disconnected';
+  
+  // 연결 상태 확인
+  public getConnectionStatus(): string {
+    return this.connectionStatus;
+  }
   
   // 소켓 연결 초기화
   public initSocket(roomId: string, isHost: boolean): Promise<boolean> {
     this.roomId = roomId;
     this.isHost = isHost;
+    this.connectionStatus = 'connecting';
     
-    // 호스트인 경우 로컬 서버 URL 사용 (예: http://localhost:3001)
-    // 참가자인 경우 호스트의 IP 주소 + 포트 사용
-    // 실제 구현에서는 QR 코드에 호스트 IP + 포트 포함 가능
-    this.serverUrl = isHost 
-      ? 'http://localhost:3001' 
-      : `http://${window.location.hostname}:3001`;
+    console.log(`소켓 연결 시도: roomId=${roomId}, isHost=${isHost}`);
+    
+    // 개발 환경에서는 localhost 사용
+    this.serverUrl = 'http://localhost:3001';
     
     return new Promise((resolve, reject) => {
       try {
+        // 기존 소켓이 있으면 연결 해제
+        if (this.socket) {
+          this.socket.disconnect();
+          this.socket = null;
+        }
+        
+        console.log(`서버 URL: ${this.serverUrl}`);
+        
         this.socket = io(this.serverUrl, {
           query: {
             roomId,
@@ -53,16 +68,19 @@ class SocketService {
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           timeout: 10000,
+          transports: ['websocket', 'polling'],  // websocket을 먼저 시도
         });
         
         this.socket.on('connect', () => {
           console.log('소켓 연결 성공');
+          this.connectionStatus = 'connected';
           this.reconnectAttempts = 0;
           resolve(true);
         });
         
         this.socket.on('connect_error', (error) => {
           console.error('소켓 연결 오류:', error);
+          this.connectionStatus = 'error';
           this.reconnectAttempts++;
           
           if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -72,6 +90,7 @@ class SocketService {
         
         this.socket.on('disconnect', (reason) => {
           console.log('소켓 연결 해제:', reason);
+          this.connectionStatus = 'disconnected';
           
           // 서버 측에서 연결을 해제한 경우 재연결 시도 안 함
           if (reason === 'io server disconnect') {
@@ -84,6 +103,7 @@ class SocketService {
         
       } catch (error) {
         console.error('소켓 초기화 오류:', error);
+        this.connectionStatus = 'error';
         reject(error);
       }
     });
@@ -94,6 +114,7 @@ class SocketService {
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
+      this.connectionStatus = 'disconnected';
     }
   }
   
@@ -106,15 +127,17 @@ class SocketService {
     
     const fullMessage: Message = {
       ...message,
-      sender: this.socket.id,
+      sender: this.socket.id || 'unknown',
       timestamp: Date.now(),
     };
     
+    console.log('메시지 전송:', fullMessage.type);
     this.socket.emit('message', fullMessage);
   }
   
   // 방 참여 요청
   public joinRoom(nickname: string): void {
+    console.log(`방 참여 요청: ${nickname}, roomId=${this.roomId}`);
     this.sendMessage({
       type: 'JOIN_REQUEST',
       payload: {
@@ -131,6 +154,7 @@ class SocketService {
       return;
     }
     
+    console.log(`게임 시작 요청: ${gameType}`);
     this.sendMessage({
       type: 'GAME_START',
       payload: {
@@ -155,11 +179,18 @@ class SocketService {
   private registerEventHandlers(): void {
     if (!this.socket) return;
     
+    console.log('이벤트 핸들러 등록');
+    
     // 메시지 수신 핸들러
     this.socket.on('message', (message: Message) => {
+      console.log('메시지 수신:', message.type);
       const gameStore = useGameStore.getState();
       
       switch (message.type) {
+        case 'ROOM_CREATED':
+          console.log('방 생성 확인:', message.payload);
+          break;
+          
         case 'JOIN_CONFIRMED':
           // 방 참여 확인 및 현재 상태 설정
           console.log('방 참여 확인:', message.payload);
@@ -167,14 +198,14 @@ class SocketService {
           
         case 'PLAYER_LIST_UPDATE':
           // 참가자 목록 업데이트
+          console.log('참가자 목록 업데이트:', message.payload.participants);
           const participants = message.payload.participants as Participant[];
-          participants.forEach(p => {
-            gameStore.addParticipant(p);
-          });
+          gameStore.setParticipants(participants);
           break;
           
         case 'GAME_START':
           // 게임 시작
+          console.log('게임 시작:', message.payload.gameType);
           gameStore.startGame(message.payload.gameType);
           break;
           
@@ -207,6 +238,7 @@ class SocketService {
           
         case 'DISCONNECT_NOTICE':
           // 참가자 연결 해제 처리
+          console.log('참가자 연결 해제:', message.payload.nickname);
           gameStore.removeParticipant(message.payload.participantId);
           break;
           
