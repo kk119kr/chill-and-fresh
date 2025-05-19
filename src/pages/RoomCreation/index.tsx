@@ -47,10 +47,10 @@ const RoomCreation: React.FC = () => {
   
   // 게임 시작 함수
   const handleStartGame = (gameType: 'chill' | 'freshhh') => {
-    if (participants.length < 2) {
-      setError('게임을 시작하려면 최소 2명의 참가자가 필요합니다.');
-      return;
-    }
+     if (participants.length < 1) {
+    setError('최소 1명의 참가자가 필요합니다.');
+    return;
+  }
     
     // 소켓을 통해 게임 시작 메시지 전송
     socketService.startGame(gameType);
@@ -136,24 +136,24 @@ const RoomCreation: React.FC = () => {
             <p className="text-center mb-4">게임 선택</p>
             <div className="flex space-x-4">
               <Button
-                onClick={() => handleStartGame('chill')}
-                disabled={participants.length < 2}
-                variant="primary"
-                size="large"
-                className="flex-1"
-              >
-                Chill (랜덤 당첨)
-              </Button>
-              
-              <Button
-                onClick={() => handleStartGame('freshhh')}
-                disabled={participants.length < 2}
-                variant="secondary"
-                size="large"
-                className="flex-1"
-              >
-                Freshhh (눈치게임)
-              </Button>
+  onClick={() => handleStartGame('chill')}
+  disabled={participants.length < 1} // 1명으로 변경
+  variant="primary"
+  size="large"
+  className="flex-1"
+>
+  Chill (랜덤 당첨)
+</Button>
+
+<Button
+  onClick={() => handleStartGame('freshhh')}
+  disabled={participants.length < 1} // 1명으로 변경
+  variant="secondary"
+  size="large"
+  className="flex-1"
+>
+  Freshhh (눈치게임)
+</Button>
             </div>
             
             {participants.length < 2 && (
