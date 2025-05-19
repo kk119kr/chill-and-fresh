@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
+import QRCodeGenerator from '../../components/common/QRCodeGenerator';
 
 const RoomCreation: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [roomId, setRoomId] = useState('');
   const [isRoomCreated, setIsRoomCreated] = useState(false);
+  
+  // QR 코드에 포함될 URL 생성
+  const qrCodeValue = isRoomCreated 
+    ? `${window.location.origin}/join?roomId=${roomId}` 
+    : '';
 
   // 방 생성 함수
   const createRoom = () => {
@@ -57,10 +63,8 @@ const RoomCreation: React.FC = () => {
       ) : (
         <div className="w-full max-w-md flex flex-col items-center">
           <div className="mb-4">
-            {/* QR코드가 여기에 표시됩니다 */}
-            <div className="w-60 h-60 bg-gray-100 flex items-center justify-center">
-              QR 코드 자리
-            </div>
+            {/* 여기에 QRCodeGenerator 컴포넌트 사용 */}
+            <QRCodeGenerator value={qrCodeValue} size={240} />
           </div>
           
           <div className="mb-8 text-center">
