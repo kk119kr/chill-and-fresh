@@ -1,11 +1,4 @@
-antml:function_calls>
-<invoke name="artifacts">
-<parameter name="command">create</parameter>
-<parameter name="id">modified-package-json</parameter>
-<parameter name="type">application/vnd.ant.code</parameter>
-<parameter name="language">json</parameter>
-<parameter name="title">수정된 package.json</parameter>
-<parameter name="content">{   
+{   
   "name": "chill-and-fresh",   
   "private": true,   
   "version": "0.0.0",   
@@ -54,5 +47,4 @@ antml:function_calls>
     "typescript-eslint": "^8.30.1",     
     "vite": "^6.3.5"   
   } 
-}</parameter>
-</invoke>
+}
