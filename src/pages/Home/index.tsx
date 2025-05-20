@@ -1,175 +1,312 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import Button from '../../components/common/Button';
 
-const Home: React.FC = () => {
-  const navigate = useNavigate();
+interface ChillButtonProps {
+  number: number;
+  isActive: boolean;
+  isWinner: boolean;
+  gameState: 'waiting' | 'spinning' | 'result';
+  userTapped: boolean;
+  onTap: () => void;
+}
+
+interface ChillGameProps {
+  participants: { id: string; nickname: string }[];
+  participantNumber: number; // 현재 사용자의 번호
+  isHost: boolean;
+  onGameEnd: (winnerNumber: number) => void;
+}
+
+const ChillGame: React.FC<ChillGameProps> = ({
+  participants,
+  participantNumber,
+  isHost,
+  onGameEnd,
+}) => {
+  const [gameState, setGameState] = useState<'waiting' | 'spinning' | 'result'>('waiting');
+  const [allReady, setAllReady] = useState(false);
+  const [activeNumber, setActiveNumber] = useState<number | null>(null);
+  const [winner, setWinner] = useState<number | null>(null);
+  const [userTapped, setUserTapped] = useState(false);
+
+  // 호스트가 모든 사용자의 준비 상태를 관리 (실제로는 소켓을 통해 관리)
+  const [tappedParticipants, setTappedParticipants] = useState<number[]>([]);
+
+  // 버튼 탭 처리
+  const handleTap = () => {
+    if (gameState !== 'waiting' || userTapped) return;
+    
+    setUserTapped(true);
+    
+    // 실제 구현에서는 소켓으로 준비 상태 전송
+    console.log(`참가자 ${participantNumber}이(가) 준비 완료`);
+    
+    // 호스트인 경우 tappedParticipants 업데이트 (실제론 서버에서 관리)
+    if (isHost) {
+      setTappedParticipants(prev => {
+        const updated = [...prev, participantNumber];
+        // 모든 참가자가 준비되었는지 확인
+        if (updated.length === participants.length) {
+          setAllReady(true);
+        }
+        return updated;
+      });
+    }
+  };
+
+  // 게임 시작 (호스트만 가능)
+  const startGame = () => {
+    if (!isHost || !allReady) return;
+    
+    setGameState('spinning');
+    
+    // 랜덤 회전 횟수 (3-6바퀴 사이)
+    const rounds = 3 + Math.floor(Math.random() * 3);
+    const totalParticipants = participants.length;
+    
+    // 회전 효과 구현
+    let currentNumber = 1;
+    let rotations = 0;
+    const rotationInterval = setInterval(() => {
+      setActiveNumber(currentNumber);
+      
+      currentNumber++;
+      if (currentNumber > totalParticipants) {
+        currentNumber = 1;
+        rotations++;
+      }
+      
+      // 정해진 회전 수에 도달하면 결과 표시
+      if (rotations >= rounds && Math.random() < 0.3) {
+        clearInterval(rotationInterval);
+        
+        // 마지막으로 활성화된 번호가 당첨
+        setWinner(currentNumber - 1 || totalParticipants);
+        setGameState('result');
+        
+        // 당첨 결과 콜백 호출
+        onGameEnd(currentNumber - 1 || totalParticipants);
+      }
+    }, 300 - Math.min(150, participants.length * 15)); // 참가자가 많을수록 빨라짐
+  };
+
+  // 준비 상태가 변경될 때 (실제로는 소켓 이벤트로 처리)
+  useEffect(() => {
+    if (isHost && allReady) {
+      // 잠시 대기 후 게임 시작
+      const timer = setTimeout(() => {
+        startGame();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [allReady, isHost]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white overflow-hidden relative">
-      {/* 배경 유기적 요소 */}
-      <BackgroundElements />
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+      <h1 className="text-5xl font-light mb-8">Chill</h1>
       
       <motion.div
-        className="z-10 w-full flex flex-col items-center justify-center px-6"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8 }}
+        className="mb-8 text-center"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <motion.h1 
-          className="text-5xl font-light mb-16 tracking-tight text-black"
-          initial={{ y: -30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ 
-            type: "spring",
-            damping: 20,
-            stiffness: 90,
-            delay: 0.2 
-          }}
-        >
-          <span className="relative">
-            Chill & Fresh
-            <motion.div 
-              className="absolute -bottom-2 left-0 right-0 h-px bg-black bg-opacity-20"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: 1 }}
-              transition={{ delay: 0.8, duration: 1 }}
-            />
-          </span>
-        </motion.h1>
+        {gameState === 'waiting' && (
+          <p className="text-sm text-gray-500">
+            {userTapped 
+              ? `다른 참가자를 기다리는 중... (${tappedParticipants.length}/${participants.length})` 
+              : '버튼을 탭하세요'}
+          </p>
+        )}
         
-        <motion.div 
-          className="w-full max-w-sm flex flex-col gap-6"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-        >
-          <Button 
-            onClick={() => navigate('/create')} 
-            variant="primary"
-            size="large"
-            fullWidth
+        {gameState === 'result' && (
+          <motion.p 
+            className="text-xl font-light"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ 
+              type: "spring", 
+              stiffness: 400, 
+              damping: 17 
+            }}
           >
-            방 만들기
-          </Button>
-          
-          <Button 
-            onClick={() => navigate('/join')} 
-            variant="secondary"
-            size="large"
-            fullWidth
-          >
-            참여하기
-          </Button>
-        </motion.div>
-        
-        <motion.p 
-          className="text-xs text-black text-opacity-50 mt-16 relative"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 1 }}
-        >
-          © 2025 Chill & Fresh - 로컬 네트워크 기반 소셜 게임
-          <motion.span 
-            className="absolute -bottom-1 left-0 right-0 h-px bg-black bg-opacity-10"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ delay: 1.5, duration: 1 }}
-          />
-        </motion.p>
+            {winner === participantNumber 
+              ? '당첨되었습니다! 🎉' 
+              : '아쉽게도 당첨되지 않았습니다'}
+          </motion.p>
+        )}
       </motion.div>
+      
+      {/* 살아있는 유기적인 버튼 */}
+      <ChillButton 
+        number={participantNumber}
+        isActive={activeNumber === participantNumber}
+        isWinner={winner === participantNumber}
+        gameState={gameState}
+        userTapped={userTapped}
+        onTap={handleTap}
+      />
+      
+      {gameState === 'result' && isHost && (
+        <motion.div 
+          className="mt-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+        >
+          <button 
+            className="px-8 py-3 bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 text-black"
+            onClick={() => window.location.reload()}
+          >
+            다시 하기
+          </button>
+        </motion.div>
+      )}
+      
+      {/* SVG 필터 정의 */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="ink-spread">
+            <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="3" seed="0" stitchTiles="stitch" result="turbulence"/>
+            <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <filter id="winner-glow">
+            <feGaussianBlur stdDeviation="10" result="blur" />
+            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1  0 1 0 0 1  0 0 1 0 1  0 0 0 18 -7" result="glow" />
+            <feComposite in="SourceGraphic" in2="glow" operator="over" />
+          </filter>
+        </defs>
+      </svg>
     </div>
   );
 };
 
-// 배경 유기적 모션 요소
-const BackgroundElements: React.FC = () => {
+// 유기적인 Chill 버튼 컴포넌트
+const ChillButton: React.FC<ChillButtonProps> = ({ number, isActive, isWinner, gameState, userTapped, onTap }) => {
   return (
-    <>
-      {/* 큰 유기적 블럽 모양 */}
-      <motion.div 
-        className="fixed top-0 right-0 w-4/5 h-4/5 pointer-events-none opacity-[0.03] z-0"
+    <motion.div
+      className="relative flex items-center justify-center"
+      initial={{ scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1.0] }}
+    >
+      {/* 배경 원 - 유기적인 형태 */}
+      <motion.div
+        className="absolute w-[72vw] h-[72vw] max-w-[520px] max-h-[520px] rounded-full bg-black"
         animate={{ 
-          scale: [1, 1.02, 1],
-          rotate: [0, 1, 0],
-          x: [0, 5, 0],
-          y: [0, -5, 0],
+          filter: isWinner ? "url(#winner-glow)" : isActive ? "url(#glow)" : "none",
+          boxShadow: isWinner 
+            ? "0px 0px 60px rgba(0,0,0,0.3), 0px 0px 30px rgba(0,0,0,0.2)" 
+            : "0px 10px 30px rgba(0,0,0,0.1)"
+        }}
+        transition={{ duration: 0.5 }}
+        style={{ 
+          filter: isWinner ? "url(#winner-glow)" : isActive ? "url(#glow)" : "url(#ink-spread)"
+        }}
+      />
+      
+      {/* 클릭 가능한 버튼 */}
+      <motion.button
+        className={`w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center text-6xl font-light relative z-10 ${
+          gameState === 'waiting' && !userTapped ? 'cursor-pointer' : ''
+        } ${isActive || isWinner ? 'text-white' : 'text-white'}`}
+        onClick={onTap}
+        disabled={gameState !== 'waiting' || userTapped}
+        whileTap={gameState === 'waiting' && !userTapped ? { scale: 0.97 } : {}}
+        animate={{ 
+          scale: isActive && gameState === 'spinning' 
+            ? [1, 1.05, 1] 
+            : isWinner 
+            ? [1, 1.03, 1] 
+            : 1
+        }}
+        transition={isWinner ? {
+          scale: { 
+            repeat: Infinity, 
+            repeatType: "reverse", 
+            duration: 1.5,
+            ease: "easeInOut"
+          }
+        } : {
+          scale: { duration: 0.3 }
+        }}
+      >
+        {/* 숫자 */}
+        <motion.span
+          animate={{ 
+            opacity: isActive && gameState === 'spinning' ? 1 : 0.9,
+            scale: isActive && gameState === 'spinning' ? 1.3 : 1,
+          }}
+          transition={{ duration: 0.3 }}
+        >
+          {number}
+        </motion.span>
+      </motion.button>
+      
+      {/* 물결 효과 - 클릭 시 */}
+      {gameState === 'waiting' && !userTapped && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          initial={false}
+          animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.5, 0.7, 0.5] }}
+          transition={{ 
+            repeat: Infinity, 
+            repeatType: "reverse", 
+            duration: 3,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="w-[73vw] h-[73vw] max-w-[515px] max-h-[515px] rounded-full border border-white border-opacity-20" />
+        </motion.div>
+      )}
+      
+      {/* 당첨 시 추가 효과 */}
+      {isWinner && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.8, 0.3] }}
+          transition={{ 
+            repeat: Infinity,
+            repeatType: "reverse", 
+            duration: 2,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="w-[80vw] h-[80vw] max-w-[560px] max-h-[560px] rounded-full border border-white border-opacity-30" />
+        </motion.div>
+      )}
+      
+      {/* 유기적인 움직임을 가진 내부 요소 */}
+      <motion.div 
+        className="absolute inset-0 pointer-events-none"
+        animate={{ 
+          rotate: [0, 2, -2, 0],
+          scale: [0.97, 1.01, 0.97]
         }}
         transition={{ 
           repeat: Infinity,
-          repeatType: "reverse",
-          duration: 15,
+          duration: 8,
           ease: "easeInOut"
         }}
       >
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <path 
-            fill="#000" 
-            d="M43.2,-68.1C54.9,-61.5,62.6,-47.1,64.5,-33.3C66.4,-19.5,62.4,-6.3,60.8,7.7C59.2,21.7,59.9,36.5,52.7,45.4C45.4,54.3,30.1,57.3,15.5,59.9C0.9,62.5,-13.1,64.8,-27.8,62.1C-42.6,59.5,-58.1,51.9,-63.2,39.6C-68.2,27.3,-62.9,10.2,-58.9,-4.6C-54.9,-19.5,-52.2,-32.1,-44.9,-39.8C-37.5,-47.4,-25.6,-50.1,-13.2,-56.3C-0.8,-62.5,12.1,-72.1,25.6,-73.9C39.1,-75.7,54.1,-69.7,43.2,-68.1Z" 
-            transform="translate(100 100)" 
-          />
+        <svg className="w-full h-full" viewBox="0 0 200 200">
+          <defs>
+            <radialGradient id="buttonGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+              <stop offset="0%" style={{ stopColor: '#333', stopOpacity: 0.2 }} />
+              <stop offset="100%" style={{ stopColor: '#000', stopOpacity: 0 }} />
+            </radialGradient>
+          </defs>
+          <circle cx="100" cy="100" r="95" fill="url(#buttonGradient)" />
         </svg>
       </motion.div>
-      
-      {/* 작은 유기적 형태들 */}
-      <motion.div 
-        className="fixed bottom-1/4 left-1/3 w-32 h-32 pointer-events-none opacity-[0.02]"
-        animate={{ 
-          scale: [1, 1.1, 1],
-          x: [0, -15, 0],
-          y: [0, 10, 0]
-        }}
-        transition={{ 
-          repeat: Infinity,
-          repeatType: "reverse",
-          duration: 20,
-          ease: "easeInOut"
-        }}
-      >
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <path 
-            fill="#000" 
-            d="M41.7,-62.5C50.9,-59.3,53.3,-41.2,58.5,-25.6C63.7,-10,71.7,3.2,70.7,15.5C69.7,27.8,59.8,39.2,47.8,43.9C35.8,48.7,21.9,46.7,9.4,48.2C-3,49.7,-14,54.7,-26.7,54.3C-39.5,53.9,-54,48.2,-63.2,37.4C-72.5,26.7,-76.5,10.8,-76.3,-5.1C-76.1,-21,-71.8,-37,-61.7,-47.9C-51.6,-58.9,-35.8,-65,-21.1,-62.4C-6.3,-59.8,7.5,-48.5,22.4,-51.9C37.3,-55.4,53.1,-73.5,41.7,-62.5Z" 
-            transform="translate(100 100)" 
-          />
-        </svg>
-      </motion.div>
-      
-      {/* 미니멀 점 패턴 */}
-      <div className="fixed inset-0 bg-[#000000] opacity-[0.015] z-0 pattern-dots pattern-size-2 pattern-opacity-100"></div>
-      
-      {/* 상단 장식 요소 */}
-      <motion.div 
-        className="absolute top-10 left-1/2 transform -translate-x-1/2 w-16 h-px bg-black opacity-20"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ delay: 0.5, duration: 0.8 }}
-      />
-      
-      {/* 바닥 장식 요소 */}
-      <motion.div 
-        className="absolute bottom-10 left-1/2 transform -translate-x-1/2 w-32 h-px bg-black opacity-10"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ delay: 0.7, duration: 0.8 }}
-      />
-      
-      {/* 유기적 흐름 라인 */}
-      <svg className="absolute w-full h-full top-0 left-0 opacity-[0.02] pointer-events-none" 
-           xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
-        <motion.path 
-          d="M0,500 C200,400 300,300 500,300 C700,300 800,400 1000,500 C800,600 700,700 500,700 C300,700 200,600 0,500 Z" 
-          fill="none" 
-          stroke="#000" 
-          strokeWidth="1"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2, delay: 1 }}
-        />
-      </svg>
-    </>
+    </motion.div>
   );
 };
 
-export default Home;
+export default ChillGame;
