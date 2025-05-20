@@ -196,7 +196,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
 };
 
 // 유기적인 Chill 버튼 컴포넌트
-const ChillButton = ({ number, isActive, isWinner, onTap }) => {
+const ChillButton: React.FC<ChillButtonProps> = ({ number, isActive, isWinner, gameState, userTapped, onTap }) => {
   return (
     <motion.div className="relative">
       {/* 배경 발광 효과 - 당첨 또는 활성 상태일 때 */}

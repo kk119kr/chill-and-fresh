@@ -9,8 +9,11 @@ import { useGameStore } from './store/gameStore';
 import NetworkStatus from './components/common/NetworkStatus';
 import React from 'react';
 
-// 페이지 전환 효과 컴포넌트
-const PageTransition = ({ children }) => {
+interface PageTransitionProps {
+  children: React.ReactNode;
+}
+
+const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <motion.div
       initial={{ opacity: 0 }}

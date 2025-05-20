@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import Button from '../../components/common/Button';
-import { useGameStore } from '../../store/gameStore';
+
+
 
 const Home: React.FC = () => {
   const navigate = useNavigate();

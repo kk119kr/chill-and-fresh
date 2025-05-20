@@ -137,8 +137,15 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
       endRound();
     }
   };
-  
-const FreshhhButton = ({ colorProgress, tapped, score, onTap }) => {
+
+interface FreshhhButtonProps {
+  colorProgress: number;
+  tapped: boolean;
+  score: number | null;
+  onTap: () => void;
+}  
+
+const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress, tapped, score, onTap }) => {
   // 색상 변화 기반 애니메이션
   const buttonControls = useAnimation();
   

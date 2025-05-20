@@ -1,22 +1,27 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-const Button = ({ children, onClick, variant = 'primary', fullWidth, disabled }) => {
-  // 유기적인 움직임을 위한 애니메이션 값
-  const buttonVariants = {
-    idle: {
-      scale: 1,
-      transition: { duration: 0.3 }
-    },
-    hover: {
-      scale: 1.02,
-      transition: { duration: 0.3 }
-    },
-    tap: {
-      scale: 0.98,
-      transition: { duration: 0.3 }
-    }
-  };
+interface ButtonProps {
+  children: React.ReactNode;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+  fullWidth?: boolean;
+  disabled?: boolean;
+  size?: 'small' | 'medium' | 'large';
+  className?: string;
+  isLoading?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+  children, 
+  onClick, 
+  variant = 'primary', 
+  fullWidth = false, 
+  disabled = false,
+  size = 'medium',
+  className = '',
+  isLoading = false
+}) => {
 
   const baseClasses = `relative rounded-full flex items-center justify-center font-light transition-all duration-300 overflow-hidden ${
     fullWidth ? 'w-full' : ''
