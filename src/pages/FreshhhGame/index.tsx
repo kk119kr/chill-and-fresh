@@ -143,6 +143,7 @@ interface FreshhhButtonProps {
   score: number | null;
   onTap: () => void;
   tapped: boolean;
+  tapTime?: number | null; // tapTime 속성 추가
 }
 
 const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress,   tapped,   score,   onTap }) => {
@@ -373,52 +374,13 @@ const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress,   tapped, 
         )}
 
         {/* 메인 버튼 */}
-        <motion.button
-          className="rounded-full w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center shadow-sm relative"
-          style={{
-            backgroundColor: `hsl(0, ${colorProgress}%, ${90 - colorProgress * 0.1}%)`,
-            opacity: roundState === 'result' ? 0.5 : 1
-          }}
-          animate={buttonControls}
-          onClick={handleTap}
-          disabled={roundState !== 'running' || tapped}
-          initial={{ scale: 0.95, opacity: 0 }}
-          whileHover={roundState === 'running' && !tapped ? { scale: 1.01 } : {}}
-          whileTap={roundState === 'running' && !tapped ? { scale: 0.98 } : {}}
-          transition={{ duration: 0.3 }}
-        >
-          {roundState === 'running' && !tapped && (
-            <motion.span 
-              className="text-2xl font-light"
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            >
-              TAP!
-            </motion.span>
-          )}
-          
-          {tapped && tapTime !== null && (
-            <motion.span 
-              className="text-xl font-light"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              {(tapTime / 1000).toFixed(2)}s
-            </motion.span>
-          )}
-          
-          {roundState === 'result' && (
-            <motion.span 
-              className="text-xl font-light"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              {tappedParticipants.indexOf(currentUserId) + 1}/{participants.length}
-            </motion.span>
-          )}
-        </motion.button>
+<FreshhhButton 
+  colorProgress={colorProgress}
+  score={roundScore}
+  onTap={handleTap}
+  tapped={tapped}
+  tapTime={tapTime}
+/>
         
         {/* 잉크 효과 오버레이 */}
         <svg 
