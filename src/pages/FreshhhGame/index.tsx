@@ -185,21 +185,21 @@ const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress, tapped, sc
         onClick={!tapped ? onTap : undefined}
       >
         {!tapped ? (
-          <motion.span 
-            animate={{ opacity: [0.8, 1, 0.8] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-          >
-            TAP!
-          </motion.span>
-        ) : (
-          <motion.span 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          >
-            {score > 0 ? `+${score}` : score}
-          </motion.span>
-        )}
+  <motion.span 
+    animate={{ opacity: [0.8, 1, 0.8] }}
+    transition={{ repeat: Infinity, duration: 1.5 }}
+  >
+    TAP!
+  </motion.span>
+) : (
+  <motion.span 
+    initial={{ scale: 0.8, opacity: 0 }}
+    animate={{ scale: 1, opacity: 1 }}
+    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+  >
+    {score !== null ? (score > 0 ? `+${score}` : score) : ''}
+  </motion.span>
+)}
         
         {/* 잉크 효과 오버레이 - 색상 변화에 따라 효과도 변화 */}
         <svg 
