@@ -30,7 +30,8 @@ const ChillGame: React.FC<ChillGameProps> = ({
   const [userTapped, setUserTapped] = useState(false);
 
   // 호스트가 모든 사용자의 준비 상태를 관리 (실제로는 소켓을 통해 관리)
-  const [readyParticipants, setReadyParticipants] = useState<number[]>([]);
+  // readyParticipants를 제거하지 않고 실제 사용하도록 수정
+  const [tappedParticipants, setTappedParticipants] = useState<number[]>([]);
 
   // 버튼 탭 처리
   const handleTap = () => {
@@ -41,9 +42,9 @@ const ChillGame: React.FC<ChillGameProps> = ({
     // 실제 구현에서는 소켓으로 준비 상태 전송
     console.log(`참가자 ${participantNumber}이(가) 준비 완료`);
     
-    // 호스트인 경우 readyParticipants 업데이트 (실제론 서버에서 관리)
+    // 호스트인 경우 tappedParticipants 업데이트 (실제론 서버에서 관리)
     if (isHost) {
-      setReadyParticipants(prev => {
+      setTappedParticipants(prev => {
         const updated = [...prev, participantNumber];
         // 모든 참가자가 준비되었는지 확인
         if (updated.length === participants.length) {
@@ -102,6 +103,14 @@ const ChillGame: React.FC<ChillGameProps> = ({
     }
   }, [allReady, isHost]);
 
+  // 준비 상태 디버깅 정보 (readyParticipants를 사용하는 부분 추가)
+  useEffect(() => {
+    if (isHost) {
+      console.log(`현재 준비된 참가자: ${tappedParticipants.join(', ')}`);
+      console.log(`전체 참가자 수: ${participants.length}`);
+    }
+  }, [tappedParticipants, participants.length, isHost]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white">
       <h1 className="text-4xl font-thin mb-8">Chill</h1>
@@ -115,7 +124,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
         {gameState === 'waiting' && (
           <p className="text-sm text-gray-500">
             {userTapped 
-              ? '다른 참가자를 기다리는 중...' 
+              ? `다른 참가자를 기다리는 중... (${tappedParticipants.length}/${participants.length})` 
               : '버튼을 탭하세요'}
           </p>
         )}
