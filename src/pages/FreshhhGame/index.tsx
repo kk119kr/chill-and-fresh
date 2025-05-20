@@ -146,18 +146,50 @@ interface FreshhhButtonProps {
   tapTime?: number | null; // tapTime 속성 추가
 }
 
-const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress,   tapped,   score,   onTap }) => {
-  // 색상 변화 기반 애니메이션
-  const buttonControls = useAnimation();
+
+// 잉크 경로 생성 유틸리티 함수 추가
+const generateInkPath = (complexity = 0) => {
+  const points = 12;
+  const radius = 100;
+  // complexity가 높을수록 더 불규칙한 형태
+  const variance = 5 + (complexity * 0.5); 
   
+  let path = "M";
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const r = radius + (Math.random() * variance * 2 - variance);
+    const x = Math.cos(angle) * r + 100;
+    const y = Math.sin(angle) * r + 100;
+    
+    if (i === 0) path += `${x},${y}`;
+    else path += ` L${x},${y}`;
+  }
+  path += " Z";
+  return path;
+};
+  // FreshhhButton 컴포넌트 교체
+const FreshhhButton: React.FC<FreshhhButtonProps> = ({ 
+  colorProgress, 
+  score, 
+  onTap, 
+  tapped
+}) => {
+  const [inkPath, setInkPath] = useState(generateInkPath(0));
+  
+  // 색상 진행에 따라 잉크 경로 업데이트
   useEffect(() => {
-    if (!tapped) {
-      buttonControls.start({
-        backgroundColor: [`hsl(0, ${colorProgress}%, ${90 - colorProgress * 0.1}%)`],
-        transition: { duration: 0.3 }
-      });
+    if (colorProgress % 10 === 0 && !tapped) {
+      setInkPath(generateInkPath(colorProgress / 10));
     }
-  }, [colorProgress, tapped, buttonControls]);
+  }, [colorProgress, tapped]);
+
+  // HSL 색상 계산 (빨간색으로 점점 변화)
+  const buttonColor = tapped 
+    ? `hsl(0, 100%, 50%)` 
+    : `hsl(0, ${colorProgress}%, ${95 - colorProgress * 0.3}%)`;
+  
+  // 텍스트 색상 (색상 진행에 따라 점점 흰색으로)
+  const textColor = colorProgress > 50 || tapped ? 'white' : 'black';
 
   return (
     <motion.div className="relative">
@@ -166,7 +198,10 @@ const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress,   tapped, 
         <motion.div
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
           initial={false}
-          animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.4, 0.6, 0.4] }}
+          animate={{ 
+            scale: [0.97, 1.03, 0.97], 
+            opacity: [0.2, 0.4, 0.2]
+          }}
           transition={{ 
             repeat: Infinity, 
             repeatType: "reverse", 
@@ -174,49 +209,72 @@ const FreshhhButton: React.FC<FreshhhButtonProps> = ({ colorProgress,   tapped, 
             ease: "easeInOut"
           }}
         >
-          <div className="w-[104%] h-[104%] rounded-full border border-red-200 opacity-30" />
+          <div className="w-[104%] h-[104%] rounded-full border border-red-300 opacity-30" />
         </motion.div>
       )}
       
       {/* 메인 버튼 */}
-        <motion.button
-          className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center text-2xl font-light shadow-sm relative"
-          animate={buttonControls}
-          whileTap={!tapped ? { scale: 0.98 } : {}}
-          onClick={!tapped ? onTap : undefined}
+      <motion.button
+        className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center text-3xl font-black relative shadow-sm"
+        whileTap={!tapped ? { scale: 0.97 } : {}}
+        onClick={!tapped ? onTap : undefined}
+        style={{ WebkitTapHighlightColor: 'transparent' }}
+      >
+        <motion.svg 
+          viewBox="0 0 200 200" 
+          className="absolute inset-0 w-full h-full"
+          initial={false}
+          animate={{ 
+            rotate: tapped ? [0, 3, -3, 0] : [0, 0.5, -0.5, 0],
+          }}
+          transition={{ 
+            repeat: tapped ? 0 : Infinity, 
+            duration: tapped ? 0.4 : 8,
+            ease: "easeInOut" 
+          }}
         >
-          {!tapped ? (
-    <motion.span 
-      animate={{ opacity: [0.8, 1, 0.8] }}
-      transition={{ repeat: Infinity, duration: 1.5 }}
-    >
-      TAP!
-    </motion.span>
-  ) : (
-    <motion.span 
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
-    >
-      {score !== null ? (score > 0 ? `+${score}` : score) : ''}
-    </motion.span>
-  )}
-          
-          {/* 잉크 효과 오버레이 - 색상 변화에 따라 효과도 변화 */}
-          <svg 
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            viewBox="0 0 200 200" 
-            style={{ opacity: 0.1 + (colorProgress * 0.003) }}  // 색상 진행에 따라 약간 더 진해짐
+          <motion.path 
+            d={inkPath} 
+            fill={buttonColor}
+            stroke={colorProgress > 80 ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.8)"}
+            strokeWidth="1"
+            initial={false}
+            animate={{ d: inkPath }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          />
+        </motion.svg>
+        
+        {!tapped ? (
+          <motion.span 
+            className="relative z-10 uppercase tracking-widest"
+            style={{ color: textColor }}
+            animate={{ 
+              scale: [0.95, 1.05, 0.95],
+              opacity: [0.9, 1, 0.9]
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 1.5 
+            }}
           >
-            <defs>
-              <filter id="freshhh-distort">
-                <feTurbulence type="fractalNoise" baseFrequency={0.01 + (colorProgress * 0.0002)} numOctaves="3" result="noise" />
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale={5 + (colorProgress * 0.05)} xChannelSelector="R" yChannelSelector="G" />
-              </filter>
-            </defs>
-            <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(255,0,0,0.2)" strokeWidth="1" filter="url(#freshhh-distort)" />
-          </svg>
-        </motion.button>
+            TAP!
+          </motion.span>
+        ) : (
+          <motion.span 
+            className="relative z-10 text-5xl font-black"
+            style={{ color: textColor }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ 
+              type: "spring",
+              stiffness: 400,
+              damping: 10
+            }}
+          >
+            {score !== null ? (score > 0 ? `+${score}` : score) : ''}
+          </motion.span>
+        )}
+      </motion.button>
     </motion.div>
   );
 };

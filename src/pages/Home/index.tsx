@@ -1,43 +1,79 @@
-import React, { useState } from 'react';
+// src/pages/Home/index.tsx 수정
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-
+// 잉크 버튼 SVG 경로 생성 유틸리티
+const generateInkPath = () => {
+  // 기본 원형에 약간의 불규칙성 추가
+  const points = 12;
+  const radius = 100;
+  const variance = 8; // 불규칙성 정도
+  
+  let path = "M";
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const r = radius + (Math.random() * variance * 2 - variance);
+    const x = Math.cos(angle) * r + 100;
+    const y = Math.sin(angle) * r + 100;
+    
+    if (i === 0) path += `${x},${y}`;
+    else path += ` L${x},${y}`;
+  }
+  path += " Z";
+  return path;
+};
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [selectedButton, setSelectedButton] = useState<'chill' | 'freshhh' | null>(null);
+  const [chillPath, setChillPath] = useState(generateInkPath());
+  const [freshhhPath, setFreshhhPath] = useState(generateInkPath());
   
-  // 게임 버튼 모션 제어
-  const chillVariants = {
-    initial: { scale: 0.95, opacity: 0 },
-    animate: { scale: 1, opacity: 1 },
-    tap: { scale: 0.98 },
-    exit: (custom: string) => ({
-      scale: custom === 'chill' ? 1.05 : 0.9,
-      opacity: custom === 'chill' ? 1 : 0,
-      y: custom === 'chill' ? -50 : 0,
-      transition: { duration: 0.5 }
-    })
-  };
-
-  const freshhhVariants = {
-    initial: { scale: 0.95, opacity: 0 },
-    animate: { scale: 1, opacity: 1 },
-    tap: { scale: 0.98 },
-    exit: (custom: string) => ({
-      scale: custom === 'freshhh' ? 1.05 : 0.9,
-      opacity: custom === 'freshhh' ? 1 : 0,
-      y: custom === 'freshhh' ? -50 : 0,
-      transition: { duration: 0.5 }
-    })
+  // 주기적으로 잉크 경로 업데이트
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setChillPath(generateInkPath());
+      setFreshhhPath(generateInkPath());
+    }, 5000); // 5초마다 경로 변경
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // 화면 터치 시 잉크 번짐 효과
+  const handleScreenTouch = (e: React.MouseEvent<HTMLDivElement>) => {
+    const splash = document.createElement('div');
+    splash.className = 'ink-splash';
+    splash.style.left = `${e.clientX}px`;
+    splash.style.top = `${e.clientY}px`;
+    document.body.appendChild(splash);
+    
+    // 애니메이션 시작
+    setTimeout(() => {
+      splash.classList.add('ink-splash-animate');
+    }, 10);
+    
+    // 애니메이션 종료 후 요소 제거
+    setTimeout(() => {
+      splash.remove();
+    }, 1000);
   };
 
   // 게임 선택 및 화면 전환
   const handleSelectGame = (gameType: 'chill' | 'freshhh') => {
     setSelectedButton(gameType);
     
-    // 애니메이션 효과를 위해 약간의 지연 후 전환
+    // 페이지 전환 효과
+    const transition = document.createElement('div');
+    transition.className = 'page-transition';
+    document.body.appendChild(transition);
+    
+    // 애니메이션 시작
+    setTimeout(() => {
+      transition.classList.add('page-wipe-in');
+    }, 10);
+    
+    // 애니메이션 종료 후 페이지 이동
     setTimeout(() => {
       navigate('/create', { 
         state: { 
@@ -45,157 +81,132 @@ const Home: React.FC = () => {
           animateFrom: 'home'
         }
       });
-    }, 500);
+    }, 600);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+    <div 
+      className="flex flex-col items-center justify-center min-h-screen bg-white"
+      onClick={handleScreenTouch}
+    >
       <motion.h1 
-        className="text-5xl font-thin mb-12"
-        initial={{ opacity: 0, y: -20 }}
+        className="text-7xl font-black mb-16 tracking-tight"
+        initial={{ opacity: 0, y: -40 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
-        Chill & Fresh
+        CHILL & FRESH
       </motion.h1>
       
-      <div className="grid grid-cols-1 gap-8 w-full max-w-md px-4">
+      <div className="grid grid-cols-1 gap-12 w-full max-w-md px-8 relative">
         {/* Chill 게임 버튼 */}
         <motion.div
           custom={selectedButton}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={chillVariants}
-          whileTap="tap"
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, scale: selectedButton === 'chill' ? 1.2 : 0.8 }}
           className="relative"
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
         >
           <button
             onClick={() => handleSelectGame('chill')}
             disabled={selectedButton !== null}
-            className={`w-full aspect-square rounded-full flex items-center justify-center text-4xl font-light bg-black text-white relative z-10 shadow-lg ${
-              selectedButton === 'chill' ? 'scale-105' : selectedButton ? 'opacity-50 scale-95' : ''
-            } transition-all duration-300`}
+            className="w-full aspect-square flex items-center justify-center text-5xl font-black tracking-tight text-white relative z-10 overflow-hidden"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            <motion.span
+            <motion.svg 
+              viewBox="0 0 200 200" 
+              className="absolute inset-0 w-full h-full"
+              initial={false}
               animate={{ 
-                opacity: [0.9, 1, 0.9],
-                scale: [0.99, 1.01, 0.99]
+                rotate: [0, 1, -1, 0],
+                scale: [0.98, 1.02, 0.98],
               }}
               transition={{ 
                 repeat: Infinity, 
-                repeatType: "reverse", 
-                duration: 3,
-                ease: "easeInOut"
+                duration: 10,
+                ease: "easeInOut" 
               }}
             >
-              Chill
-            </motion.span>
+              <motion.path 
+                d={chillPath} 
+                fill="black" 
+                initial={false}
+                animate={{ d: chillPath }}
+                transition={{ duration: 2, ease: "easeInOut" }}
+              />
+            </motion.svg>
             
-            {/* 유기적인 배경 효과 */}
-            <motion.div
-              className="absolute inset-0 pointer-events-none rounded-full overflow-hidden"
+            <motion.span
+              className="z-20 relative"
               animate={{ 
-                rotate: [0, 1, -1, 0],
-                scale: [0.99, 1.01, 0.99]
+                y: [0, -5, 0],
               }}
               transition={{ 
-                repeat: Infinity,
-                duration: 8,
-                ease: "easeInOut"
+                repeat: Infinity, 
+                duration: 3,
+                ease: "easeInOut" 
               }}
             >
-              <svg className="w-full h-full opacity-30" viewBox="0 0 200 200">
-                <path fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1" 
-                  d="M46.5,-76.1C59.6,-69,69.2,-54.9,76.3,-39.6C83.4,-24.4,88,-7.9,85.8,7.7C83.6,23.3,74.5,37.9,63.3,49.2C52.1,60.5,38.7,68.5,24.1,73.2C9.5,77.9,-6.3,79.4,-21.6,75.9C-36.9,72.3,-51.8,63.9,-63.1,51.5C-74.4,39.1,-82.2,22.8,-83.3,5.8C-84.4,-11.2,-78.9,-28.9,-68.5,-42.1C-58.1,-55.3,-42.9,-64,-28,-69.3C-13.1,-74.5,1.4,-76.4,16.6,-76.9C31.9,-77.5,47.8,-76.7,59.1,-70.3Z" transform="translate(100 100)" />
-              </svg>
-            </motion.div>
+              CHILL
+            </motion.span>
           </button>
-          
-          {/* 물결 효과 */}
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            initial={false}
-            animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.5, 0.7, 0.5] }}
-            transition={{ 
-              repeat: Infinity, 
-              repeatType: "reverse", 
-              duration: 3,
-              ease: "easeInOut"
-            }}
-          >
-            <div className="w-[102%] h-[102%] rounded-full border border-black border-opacity-20" />
-          </motion.div>
         </motion.div>
 
         {/* Freshhh 게임 버튼 */}
         <motion.div
           custom={selectedButton}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          variants={freshhhVariants}
-          whileTap="tap"
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, scale: selectedButton === 'freshhh' ? 1.2 : 0.8 }}
           className="relative"
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
         >
           <button
             onClick={() => handleSelectGame('freshhh')}
             disabled={selectedButton !== null}
-            className={`w-full aspect-square rounded-full flex items-center justify-center text-4xl font-light bg-white border-2 border-gray-200 text-black relative z-10 shadow-lg ${
-              selectedButton === 'freshhh' ? 'scale-105' : selectedButton ? 'opacity-50 scale-95' : ''
-            } transition-all duration-300`}
+            className="w-full aspect-square flex items-center justify-center text-5xl font-black tracking-tight text-black relative z-10 overflow-hidden"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            <motion.span
+            <motion.svg 
+              viewBox="0 0 200 200" 
+              className="absolute inset-0 w-full h-full"
+              initial={false}
               animate={{ 
-                opacity: [0.9, 1, 0.9],
-                scale: [0.99, 1.01, 0.99]
+                rotate: [0, -1, 1, 0],
+                scale: [0.98, 1.02, 0.98],
               }}
               transition={{ 
                 repeat: Infinity, 
-                repeatType: "reverse", 
-                duration: 3,
-                ease: "easeInOut"
+                duration: 10,
+                ease: "easeInOut" 
               }}
             >
-              Freshhh
-            </motion.span>
+              <motion.path 
+                d={freshhhPath} 
+                fill="white" 
+                stroke="black"
+                strokeWidth="1"
+                initial={false}
+                animate={{ d: freshhhPath }}
+                transition={{ duration: 2, ease: "easeInOut" }}
+              />
+            </motion.svg>
             
-            {/* 유기적인 배경 효과 */}
-            <motion.div
-              className="absolute inset-0 pointer-events-none rounded-full overflow-hidden"
+            <motion.span
+              className="z-20 relative"
               animate={{ 
-                rotate: [0, -1, 1, 0],
-                scale: [0.99, 1.01, 0.99]
+                y: [0, -5, 0],
               }}
               transition={{ 
-                repeat: Infinity,
-                duration: 8,
-                ease: "easeInOut"
+                repeat: Infinity, 
+                duration: 3,
+                ease: "easeInOut" 
               }}
             >
-              <svg className="w-full h-full opacity-30" viewBox="0 0 200 200">
-                <path fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" 
-                  d="M46.5,-76.1C59.6,-69,69.2,-54.9,76.3,-39.6C83.4,-24.4,88,-7.9,85.8,7.7C83.6,23.3,74.5,37.9,63.3,49.2C52.1,60.5,38.7,68.5,24.1,73.2C9.5,77.9,-6.3,79.4,-21.6,75.9C-36.9,72.3,-51.8,63.9,-63.1,51.5C-74.4,39.1,-82.2,22.8,-83.3,5.8C-84.4,-11.2,-78.9,-28.9,-68.5,-42.1C-58.1,-55.3,-42.9,-64,-28,-69.3C-13.1,-74.5,1.4,-76.4,16.6,-76.9C31.9,-77.5,47.8,-76.7,59.1,-70.3Z" transform="translate(100 100)" />
-              </svg>
-            </motion.div>
+              FRESHHH
+            </motion.span>
           </button>
-          
-          {/* 물결 효과 */}
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            initial={false}
-            animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.3, 0.5, 0.3] }}
-            transition={{ 
-              repeat: Infinity, 
-              repeatType: "reverse", 
-              duration: 3,
-              ease: "easeInOut"
-            }}
-          >
-            <div className="w-[102%] h-[102%] rounded-full border border-gray-300" />
-          </motion.div>
         </motion.div>
       </div>
       
@@ -203,9 +214,9 @@ const Home: React.FC = () => {
         className="mt-12"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
+        transition={{ duration: 0.5, delay: 0.6 }}
       >
-        <p className="text-sm text-gray-500">
+        <p className="text-sm font-medium uppercase tracking-widest">
           탭하여 게임을 선택하세요
         </p>
       </motion.div>
@@ -213,13 +224,9 @@ const Home: React.FC = () => {
       {/* SVG 필터 정의 */}
       <svg style={{ position: 'absolute', width: 0, height: 0 }}>
         <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="6" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-          <filter id="ink-spread">
-            <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="3" seed="0" stitchTiles="stitch" result="turbulence"/>
-            <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+          <filter id="ink-distort">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" seed="1" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
           </filter>
         </defs>
       </svg>
@@ -227,4 +234,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home;  
+export default Home;

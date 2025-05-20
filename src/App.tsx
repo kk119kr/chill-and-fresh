@@ -13,6 +13,7 @@ interface PageTransitionProps {
   children: React.ReactNode;
 }
 
+// src/App.tsx의 PageTransition 컴포넌트 수정
 const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <motion.div
@@ -24,7 +25,7 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
         ease: [0.25, 0.1, 0.25, 1.0],
         duration: 0.6
       }}
-      className="w-full h-full"
+      className="w-full h-full relative"
     >
       {children}
 
@@ -33,12 +34,12 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
         <defs>
           <filter id="ink-transition">
             <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
           </filter>
-          <filter id="paper-texture">
-            <feTurbulence type="turbulence" baseFrequency="0.4" result="noise" />
-            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0" />
-            <feBlend in="SourceGraphic" in2="noise" mode="overlay" />
+          <filter id="ink-splash">
+            <feTurbulence type="turbulence" baseFrequency="0.05" numOctaves="2" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="20" xChannelSelector="R" yChannelSelector="G" />
+            <feGaussianBlur stdDeviation="2" />
           </filter>
         </defs>
       </svg>

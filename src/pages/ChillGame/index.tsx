@@ -195,13 +195,51 @@ const ChillGame: React.FC<ChillGameProps> = ({
   );
 };
 
-// 유기적인 Chill 버튼 컴포넌트
+
+const generateInkPath = () => {
+  // 기본 원형에 약간의 불규칙성 추가
+  const points = 12;
+  const radius = 100;
+  const variance = 8; // 불규칙성 정도
+  
+  let path = "M";
+  for (let i = 0; i < points; i++) {
+    const angle = (i / points) * Math.PI * 2;
+    const r = radius + (Math.random() * variance * 2 - variance);
+    const x = Math.cos(angle) * r + 100;
+    const y = Math.sin(angle) * r + 100;
+    
+    if (i === 0) path += `${x},${y}`;
+    else path += ` L${x},${y}`;
+  }
+  path += " Z";
+  return path;
+};
+
 const ChillButton: React.FC<ChillButtonProps> = ({ 
   number, 
   isActive, 
   isWinner, 
+  gameState,
+  userTapped,
   onTap 
 }) => {
+  const [inkPath, setInkPath] = useState(generateInkPath());
+  
+  // 활성화됐을 때 또는 주기적으로 잉크 형태 변화
+  useEffect(() => {
+    if (isActive || isWinner) {
+      setInkPath(generateInkPath());
+    }
+    
+    // 각 버튼마다 살짝 다른 주기로 업데이트
+    const interval = setInterval(() => {
+      setInkPath(generateInkPath());
+    }, 5000 + (number * 200)); // 버튼마다 다른 주기
+    
+    return () => clearInterval(interval);
+  }, [isActive, isWinner, number]);
+
   return (
     <motion.div className="relative">
       {/* 배경 발광 효과 - 당첨 또는 활성 상태일 때 */}
@@ -210,37 +248,59 @@ const ChillButton: React.FC<ChillButtonProps> = ({
           className="absolute inset-0 rounded-full"
           initial={{ opacity: 0 }}
           animate={{ 
-            opacity: isWinner ? [0.6, 0.8, 0.6] : [0.3, 0.5, 0.3],
-            scale: isWinner ? [0.98, 1.02, 0.98] : [0.99, 1.01, 0.99]
+            opacity: isWinner ? [0.7, 0.9, 0.7] : [0.4, 0.6, 0.4],
+            scale: isWinner ? [0.97, 1.03, 0.97] : [0.99, 1.01, 0.99]
           }}
           transition={{ 
             repeat: Infinity, 
             repeatType: "reverse", 
-            duration: isWinner ? 1.5 : 0.8,
+            duration: isWinner ? 1.2 : 0.8,
             ease: "easeInOut"
           }}
           style={{ 
             filter: 'blur(15px)',
-            background: isWinner ? 'white' : 'rgba(255,255,255,0.3)'
+            background: isWinner ? 'black' : 'rgba(0,0,0,0.3)'
           }}
         />
       )}
       
       {/* 메인 버튼 */}
       <motion.button
-        className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center bg-white shadow-sm text-5xl font-light relative"
-        whileTap={{ scale: 0.98 }}
+        className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center relative"
+        whileTap={{ scale: 0.97 }}
         onClick={onTap}
-        animate={{ 
-          boxShadow: isWinner 
-            ? '0px 0px 30px rgba(255,255,255,0.5), 0px 0px 15px rgba(0,0,0,0.1)' 
-            : '0px 5px 15px rgba(0,0,0,0.05)'
-        }}
+        disabled={gameState !== 'waiting' || userTapped}
       >
-        <motion.span
+        <motion.svg 
+          viewBox="0 0 200 200" 
+          className="absolute inset-0 w-full h-full"
+          initial={false}
           animate={{ 
-            scale: isActive ? [1, 1.2, 1] : 1,
-            opacity: isActive ? [0.8, 1, 0.8] : 0.9
+            rotate: isActive ? [0, 2, -2, 0] : [0, 0.5, -0.5, 0],
+            scale: isActive ? [0.95, 1.05, 0.95] : [0.98, 1.02, 0.98],
+          }}
+          transition={{ 
+            repeat: Infinity, 
+            duration: isActive ? 0.4 : 8,
+            ease: "easeInOut" 
+          }}
+        >
+          <motion.path 
+            d={inkPath} 
+            fill={isWinner || isActive ? "black" : "white"}
+            stroke="black"
+            strokeWidth="1"
+            initial={false}
+            animate={{ d: inkPath }}
+            transition={{ duration: 2, ease: "easeInOut" }}
+          />
+        </motion.svg>
+        
+        <motion.span
+          className={`z-20 relative text-7xl font-black ${isWinner || isActive ? 'text-white' : 'text-black'}`}
+          animate={{ 
+            scale: isActive ? [1, 1.3, 1] : 1,
+            opacity: isActive ? [0.8, 1, 0.8] : 1
           }}
           transition={{ 
             duration: 0.4
@@ -248,39 +308,27 @@ const ChillButton: React.FC<ChillButtonProps> = ({
         >
           {number}
         </motion.span>
-        
-        {/* 잉크 효과 오버레이 */}
-        <svg 
-          className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
-          viewBox="0 0 200 200" 
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <filter id="ink-spread">
-            <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="3" result="turbulence"/>
-            <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="8" xChannelSelector="R" yChannelSelector="G"/>
-          </filter>
-          <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="1" filter="url(#ink-spread)" />
-        </svg>
       </motion.button>
       
       {/* 추가 물결 효과 */}
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        initial={false}
-        animate={{ 
-          scale: [0.97, 1.03, 0.97], 
-          opacity: [0.3, 0.5, 0.3],
-          rotate: [0, 1, -1, 0]  // 미세한 회전 추가
-        }}
-        transition={{ 
-          repeat: Infinity, 
-          repeatType: "reverse", 
-          duration: 4,
-          ease: "easeInOut"
-        }}
-      >
-        <div className="w-[104%] h-[104%] rounded-full border border-gray-300 opacity-30" />
-      </motion.div>
+      {!isWinner && !isActive && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          initial={false}
+          animate={{ 
+            scale: [0.97, 1.03, 0.97], 
+            opacity: [0.1, 0.3, 0.1],
+          }}
+          transition={{ 
+            repeat: Infinity, 
+            repeatType: "reverse", 
+            duration: 4,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="w-[102%] h-[102%] rounded-full border border-black opacity-30" />
+        </motion.div>
+      )}
     </motion.div>
   );
 };
