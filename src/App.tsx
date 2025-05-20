@@ -10,7 +10,7 @@ import NetworkStatus from './components/common/NetworkStatus';
 import React from 'react';
 
 // 페이지 전환 효과 컴포넌트
-const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const PageTransition = ({ children }) => {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -25,12 +25,17 @@ const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) =
     >
       {children}
 
-      {/* SVG 필터 정의 */}
+      {/* 페이지 전환용 SVG 필터 정의 */}
       <svg className="absolute inset-0 w-0 h-0 z-[-1]">
         <defs>
           <filter id="ink-transition">
             <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise" />
             <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="paper-texture">
+            <feTurbulence type="turbulence" baseFrequency="0.4" result="noise" />
+            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0" />
+            <feBlend in="SourceGraphic" in2="noise" mode="overlay" />
           </filter>
         </defs>
       </svg>

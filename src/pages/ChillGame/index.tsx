@@ -196,101 +196,86 @@ const ChillGame: React.FC<ChillGameProps> = ({
 };
 
 // 유기적인 Chill 버튼 컴포넌트
-const ChillButton: React.FC<ChillButtonProps> = ({ number, isActive, isWinner, gameState, userTapped, onTap }) => {
+const ChillButton = ({ number, isActive, isWinner, onTap }) => {
   return (
-    <motion.div
-      className="relative flex items-center justify-center"
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.8, ease: [0.25, 0.1, 0.25, 1.0] }}
-    >
-      {/* 배경 원 - 유기적인 형태 */}
-      <motion.div
-        className="absolute w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full bg-white"
-        animate={{ 
-          filter: isWinner ? "url(#winner-glow)" : isActive ? "url(#glow)" : "none",
-          boxShadow: isWinner 
-            ? "0px 0px 40px rgba(255,255,255,0.7), 0px 0px 20px rgba(255,255,255,0.5)" 
-            : "0px 5px 15px rgba(0,0,0,0.05)"
-        }}
-        transition={{ duration: 0.5 }}
-        style={{ 
-          filter: isWinner ? "url(#winner-glow)" : isActive ? "url(#glow)" : "url(#ink-spread)"
-        }}
-      />
-      
-      {/* 클릭 가능한 버튼 */}
-      <motion.button
-        className={`w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center text-5xl font-light relative z-10 ${
-          gameState === 'waiting' && !userTapped ? 'cursor-pointer' : ''
-        }`}
-        onClick={onTap}
-        disabled={gameState !== 'waiting' || userTapped}
-        whileTap={gameState === 'waiting' && !userTapped ? { scale: 0.98 } : {}}
-        animate={{ 
-          scale: isActive && gameState === 'spinning' 
-            ? [1, 1.05, 1] 
-            : isWinner 
-            ? [1, 1.03, 1] 
-            : 1
-        }}
-        transition={isWinner ? {
-          scale: { 
+    <motion.div className="relative">
+      {/* 배경 발광 효과 - 당첨 또는 활성 상태일 때 */}
+      {(isWinner || isActive) && (
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          initial={{ opacity: 0 }}
+          animate={{ 
+            opacity: isWinner ? [0.6, 0.8, 0.6] : [0.3, 0.5, 0.3],
+            scale: isWinner ? [0.98, 1.02, 0.98] : [0.99, 1.01, 0.99]
+          }}
+          transition={{ 
             repeat: Infinity, 
             repeatType: "reverse", 
-            duration: 1.5,
+            duration: isWinner ? 1.5 : 0.8,
             ease: "easeInOut"
-          }
-        } : {
-          scale: { duration: 0.3 }
+          }}
+          style={{ 
+            filter: 'blur(15px)',
+            background: isWinner ? 'white' : 'rgba(255,255,255,0.3)'
+          }}
+        />
+      )}
+      
+      {/* 메인 버튼 */}
+      <motion.button
+        className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center bg-white shadow-sm text-5xl font-light relative"
+        whileTap={{ scale: 0.98 }}
+        onClick={onTap}
+        animate={{ 
+          boxShadow: isWinner 
+            ? '0px 0px 30px rgba(255,255,255,0.5), 0px 0px 15px rgba(0,0,0,0.1)' 
+            : '0px 5px 15px rgba(0,0,0,0.05)'
         }}
       >
-        {/* 숫자 */}
         <motion.span
           animate={{ 
-            opacity: isActive && gameState === 'spinning' ? 1 : 0.8,
-            scale: isActive && gameState === 'spinning' ? 1.2 : 1,
-            color: isWinner ? "#000" : "#353535"
+            scale: isActive ? [1, 1.2, 1] : 1,
+            opacity: isActive ? [0.8, 1, 0.8] : 0.9
           }}
-          transition={{ duration: 0.3 }}
+          transition={{ 
+            duration: 0.4
+          }}
         >
           {number}
         </motion.span>
+        
+        {/* 잉크 효과 오버레이 */}
+        <svg 
+          className="absolute inset-0 w-full h-full pointer-events-none opacity-10"
+          viewBox="0 0 200 200" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <filter id="ink-spread">
+            <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="3" result="turbulence"/>
+            <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="8" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(0,0,0,0.2)" strokeWidth="1" filter="url(#ink-spread)" />
+        </svg>
       </motion.button>
       
-      {/* 물결 효과 - 클릭 시 */}
-      {gameState === 'waiting' && !userTapped && (
-        <motion.div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          initial={false}
-          animate={{ scale: [0.9, 1.01, 1], opacity: [0.7, 0.9, 0.7] }}
-          transition={{ 
-            repeat: Infinity, 
-            repeatType: "reverse", 
-            duration: 3,
-            ease: "easeInOut"
-          }}
-        >
-          <div className="w-[72vw] h-[72vw] max-w-[510px] max-h-[510px] rounded-full border border-gray-200 opacity-30" />
-        </motion.div>
-      )}
-      
-      {/* 당첨 시 추가 효과 */}
-      {isWinner && (
-        <motion.div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.8, 0.3] }}
-          transition={{ 
-            repeat: Infinity, 
-            repeatType: "reverse", 
-            duration: 2,
-            ease: "easeInOut"
-          }}
-        >
-          <div className="w-[80vw] h-[80vw] max-w-[560px] max-h-[560px] rounded-full border border-gray-100 opacity-20" />
-        </motion.div>
-      )}
+      {/* 추가 물결 효과 */}
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        initial={false}
+        animate={{ 
+          scale: [0.97, 1.03, 0.97], 
+          opacity: [0.3, 0.5, 0.3],
+          rotate: [0, 1, -1, 0]  // 미세한 회전 추가
+        }}
+        transition={{ 
+          repeat: Infinity, 
+          repeatType: "reverse", 
+          duration: 4,
+          ease: "easeInOut"
+        }}
+      >
+        <div className="w-[104%] h-[104%] rounded-full border border-gray-300 opacity-30" />
+      </motion.div>
     </motion.div>
   );
 };

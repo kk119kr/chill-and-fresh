@@ -138,6 +138,81 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     }
   };
   
+const FreshhhButton = ({ colorProgress, tapped, score, onTap }) => {
+  // 색상 변화 기반 애니메이션
+  const buttonControls = useAnimation();
+  
+  useEffect(() => {
+    if (!tapped) {
+      buttonControls.start({
+        backgroundColor: [`hsl(0, ${colorProgress}%, ${90 - colorProgress * 0.1}%)`],
+        transition: { duration: 0.3 }
+      });
+    }
+  }, [colorProgress, tapped, buttonControls]);
+
+  return (
+    <motion.div className="relative">
+      {/* 배경 물결 효과 */}
+      {!tapped && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          initial={false}
+          animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.4, 0.6, 0.4] }}
+          transition={{ 
+            repeat: Infinity, 
+            repeatType: "reverse", 
+            duration: 3,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="w-[104%] h-[104%] rounded-full border border-red-200 opacity-30" />
+        </motion.div>
+      )}
+      
+      {/* 메인 버튼 */}
+      <motion.button
+        className="w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] rounded-full flex items-center justify-center text-2xl font-light shadow-sm relative"
+        animate={buttonControls}
+        whileTap={!tapped ? { scale: 0.98 } : {}}
+        onClick={!tapped ? onTap : undefined}
+      >
+        {!tapped ? (
+          <motion.span 
+            animate={{ opacity: [0.8, 1, 0.8] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          >
+            TAP!
+          </motion.span>
+        ) : (
+          <motion.span 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
+            {score > 0 ? `+${score}` : score}
+          </motion.span>
+        )}
+        
+        {/* 잉크 효과 오버레이 - 색상 변화에 따라 효과도 변화 */}
+        <svg 
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 200 200" 
+          style={{ opacity: 0.1 + (colorProgress * 0.003) }}  // 색상 진행에 따라 약간 더 진해짐
+        >
+          <defs>
+            <filter id="freshhh-distort">
+              <feTurbulence type="fractalNoise" baseFrequency={0.01 + (colorProgress * 0.0002)} numOctaves="3" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale={5 + (colorProgress * 0.05)} xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          </defs>
+          <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(255,0,0,0.2)" strokeWidth="1" filter="url(#freshhh-distort)" />
+        </svg>
+      </motion.button>
+    </motion.div>
+  );
+};
+
   // 시간 초과 처리
   const handleTimeout = () => {
     setTapped(true);
