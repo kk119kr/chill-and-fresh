@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion';
 
 interface Participant {
   id: string;
@@ -34,6 +34,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   const [colorProgress, setColorProgress] = useState(0); // 0-100
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
+  const buttonControls = useAnimation();
   const roundDuration = 4000; // 4초
   
   // 사용자 액션 관련 상태
@@ -70,6 +71,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     setTappedParticipants([]);
     
     startTimeRef.current = Date.now();
+    
+    // 버튼 색상 변화 애니메이션 시작
+    buttonControls.start({
+      backgroundColor: ["hsl(0, 0%, 95%)", "hsl(0, 100%, 90%)"],
+      transition: { duration: 4, ease: "linear" }
+    });
     
     // 버튼 색상 변화 시작
     const step = 100 / (roundDuration / 16.67); // 60fps 기준
@@ -109,6 +116,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     setTapped(true);
     setTapTime(elapsedTime);
     
+    // 버튼 탭 시 물결 효과 애니메이션
+    buttonControls.start({
+      scale: [1, 0.98, 1],
+      transition: { duration: 0.3 }
+    });
+    
     // 사용자가 몇 번째로 탭했는지 기록 (실제로는 서버에서 관리)
     const newTappedParticipants = [...tappedParticipants, currentUserId];
     setTappedParticipants(newTappedParticipants);
@@ -131,6 +144,13 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     
     // 시간 초과 패널티 점수
     calculateScore(participants.length, roundDuration);
+    
+    // 시간 초과 시 폭발 효과 애니메이션
+    buttonControls.start({
+      scale: [1, 1.1, 0.95],
+      opacity: [1, 0.8, 1],
+      transition: { duration: 0.5 }
+    });
     
     // 실제 구현에서는 서버로 시간 초과 이벤트 전송
     console.log(`참가자 ${currentUserId}가 시간 초과되었습니다.`);
@@ -203,76 +223,174 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
       }
     };
   }, []);
-  
-  // 버튼 색상 계산
-  const getButtonBackgroundColor = () => {
-    // 점진적으로 회색에서 빨간색으로 변화
-    if (roundState === 'running') {
-      // HSL 색상으로 변환하여 부드러운 변화 구현
-      // 회색(0% 채도) -> 빨간색(100% 채도)
-      return `hsl(0, ${colorProgress}%, 90%)`;
-    }
-    
-    return 'hsl(0, 0%, 95%)'; // 기본 연한 회색
-  };
-  
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-      <div className="absolute top-4 left-0 right-0 text-center">
+      <motion.div 
+        className="absolute top-4 left-0 right-0 text-center"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <p className="text-lg font-light">라운드 {currentRound}/3</p>
-      </div>
+      </motion.div>
       
       {roundState === 'countdown' && (
-        <div className="text-6xl font-thin mb-8">
+        <motion.div 
+          className="text-6xl font-thin mb-8"
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 1.5, opacity: 0 }}
+          key={countdown}
+        >
           {countdown}
-        </div>
+        </motion.div>
       )}
       
       {roundState === 'result' && (
-        <div className="mb-8">
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <p className="text-xl font-light">이번 라운드 점수</p>
-          <p className="text-4xl font-light mt-2">
+          <motion.p 
+            className="text-4xl font-light mt-2"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 10
+            }}
+          >
             {roundScore !== null && roundScore > 0 && '+'}
             {roundScore}
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
       )}
       
-      <motion.button
-        className="rounded-full w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center shadow-sm"
-        style={{
-          backgroundColor: getButtonBackgroundColor(),
-          opacity: roundState === 'result' ? 0.5 : 1
-        }}
-        onClick={handleTap}
-        disabled={roundState !== 'running' || tapped}
-        whileTap={{ scale: roundState === 'running' && !tapped ? 0.98 : 1 }}
-      >
+      {/* 유기적인 잉크 효과가 있는 버튼 */}
+      <div className="relative">
+        {/* 물결 효과 배경 */}
         {roundState === 'running' && !tapped && (
-          <span className="text-2xl font-light">TAP!</span>
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            initial={false}
+            animate={{ scale: [0.97, 1.03, 0.97], opacity: [0.5, 0.7, 0.5] }}
+            transition={{ 
+              repeat: Infinity, 
+              repeatType: "reverse", 
+              duration: 2,
+              ease: "easeInOut"
+            }}
+          >
+            <div className="w-[73vw] h-[73vw] max-w-[515px] max-h-[515px] rounded-full border border-gray-200 opacity-30" />
+          </motion.div>
         )}
+
+        {/* 메인 버튼 */}
+        <motion.button
+          className="rounded-full w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center shadow-sm relative"
+          style={{
+            backgroundColor: `hsl(0, ${colorProgress}%, ${90 - colorProgress * 0.1}%)`,
+            opacity: roundState === 'result' ? 0.5 : 1
+          }}
+          animate={buttonControls}
+          onClick={handleTap}
+          disabled={roundState !== 'running' || tapped}
+          initial={{ scale: 0.95, opacity: 0 }}
+          whileHover={roundState === 'running' && !tapped ? { scale: 1.01 } : {}}
+          whileTap={roundState === 'running' && !tapped ? { scale: 0.98 } : {}}
+          transition={{ duration: 0.3 }}
+        >
+          {roundState === 'running' && !tapped && (
+            <motion.span 
+              className="text-2xl font-light"
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
+              TAP!
+            </motion.span>
+          )}
+          
+          {tapped && tapTime !== null && (
+            <motion.span 
+              className="text-xl font-light"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              {(tapTime / 1000).toFixed(2)}s
+            </motion.span>
+          )}
+          
+          {roundState === 'result' && (
+            <motion.span 
+              className="text-xl font-light"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+            >
+              {tappedParticipants.indexOf(currentUserId) + 1}/{participants.length}
+            </motion.span>
+          )}
+        </motion.button>
         
-        {tapped && tapTime !== null && (
-          <span className="text-xl font-light">
-            {(tapTime / 1000).toFixed(2)}s
-          </span>
-        )}
-        
-        {roundState === 'result' && (
-          <span className="text-xl font-light">
-            {tappedParticipants.indexOf(currentUserId) + 1}/{participants.length}
-          </span>
-        )}
-      </motion.button>
+        {/* 잉크 효과 오버레이 */}
+        <svg 
+          className="absolute inset-0 w-full h-full pointer-events-none opacity-20"
+          viewBox="0 0 200 200" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <filter id="ink-distort">
+              <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          </defs>
+          <circle cx="100" cy="100" r="95" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="1" filter="url(#ink-distort)" />
+        </svg>
+      </div>
       
       {currentRound === 3 && roundState === 'result' && (
-        <div className="mt-8">
+        <motion.div 
+          className="mt-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+        >
           <p className="text-xl font-light">총점</p>
-          <p className="text-4xl font-light mt-2">
+          <motion.p 
+            className="text-4xl font-light mt-2"
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 400,
+              damping: 10
+            }}
+          >
             {totalScore + (roundScore || 0)}
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
       )}
+      
+      {/* 유기적인 흐름을 위한 배경 요소 */}
+      <svg className="absolute inset-0 w-0 h-0 pointer-events-none">
+        <defs>
+          <filter id="freshhh-filter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" seed="1" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="freshhh-glow">
+            <feGaussianBlur stdDeviation="7" result="blur" />
+            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1  0 0 0 0 0  0 0 0 0 0  0 0 0 12 -6" result="glow" />
+            <feComposite in="SourceGraphic" in2="glow" operator="over" />
+          </filter>
+        </defs>
+      </svg>
     </div>
   );
 };

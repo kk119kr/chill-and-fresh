@@ -1,4 +1,5 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import React, { ButtonHTMLAttributes, useState } from 'react';
+import { motion } from 'framer-motion';
 
 export type ButtonVariant = 'primary' | 'secondary';
 export type ButtonSize = 'small' | 'medium' | 'large';
@@ -21,8 +22,10 @@ const Button: React.FC<ButtonProps> = ({
   isLoading = false,
   ...props
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
   // 기본 스타일
-  const baseStyle = 'transition-colors font-medium rounded-full focus:outline-none flex items-center justify-center';
+  const baseStyle = 'transition-colors font-medium rounded-full focus:outline-none flex items-center justify-center overflow-hidden relative';
   
   // 버튼 크기별 스타일
   const sizeStyles = {
@@ -31,10 +34,10 @@ const Button: React.FC<ButtonProps> = ({
     large: 'h-14 px-8 text-lg',
   };
   
-  // 버튼 변형별 스타일
+  // 버튼 변형별 스타일 (흑백만 사용)
   const variantStyles = {
-    primary: 'bg-gray-50 hover:bg-gray-100 shadow-sm text-gray-800',
-    secondary: 'bg-white border border-gray-100 hover:bg-gray-50 text-gray-700',
+    primary: 'bg-white hover:bg-gray-50 shadow-sm text-gray-800 border border-gray-100',
+    secondary: 'bg-gray-50 border border-gray-100 hover:bg-white text-gray-700',
   };
   
   // 너비 스타일
@@ -54,23 +57,69 @@ const Button: React.FC<ButtonProps> = ({
   `.trim().replace(/\s+/g, ' ');
 
   return (
-    <button
+    <motion.button
       className={buttonClass}
       disabled={disabled || isLoading}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      whileTap={{ scale: disabled ? 1 : 0.98 }}
+      initial={{ y: 5, opacity: 0 }}
+      animate={{ 
+        y: 0, 
+        opacity: 1,
+        boxShadow: isHovered && !disabled ? 
+          "0px 8px 15px rgba(0,0,0,0.05)" : 
+          "0px 4px 10px rgba(0,0,0,0.03)"
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 400,
+        damping: 25,
+        opacity: { duration: 0.2 }
+      }}
       {...props}
     >
+      {/* 잉크 스플래시 효과 - 클릭 시 파장 효과 */}
+      {!disabled && (
+        <span className="ink-splash absolute inset-0 pointer-events-none rounded-full" />
+      )}
+
       {isLoading ? (
         <>
           <span className="mr-2">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <motion.svg 
+              className="w-4 h-4 text-gray-400"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              viewBox="0 0 24 24"
+            >
+              <circle 
+                cx="12" cy="12" r="10" 
+                stroke="currentColor" 
+                strokeWidth="4" 
+                fill="none" 
+                strokeDasharray="60 30"
+              />
+            </motion.svg>
           </span>
           로딩 중...
         </>
       ) : children}
-    </button>
+
+      {/* 스타일 추가 */}
+      <style jsx>{`
+        .ink-splash {
+          background-position: center;
+          transition: background 0.8s;
+        }
+        .ink-splash:active {
+          background-color: rgba(0, 0, 0, 0.05);
+          background-size: 100%;
+          transition: background 0s;
+          background-image: radial-gradient(circle, transparent 10%, rgba(0, 0, 0, 0.03) 10.01%);
+        }
+      `}</style>
+    </motion.button>
   );
 };
 

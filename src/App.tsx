@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import Home from './pages/Home';
 import RoomCreation from './pages/RoomCreation';
 import Lobby from './pages/Lobby';
@@ -6,11 +7,90 @@ import ChillGame from './pages/ChillGame';
 import FreshhhGame from './pages/FreshhhGame';
 import { useGameStore } from './store/gameStore';
 
-// GameRoute 컴포넌트를 사용하여 게임 관련 라우트를 보호하는 래퍼 컴포넌트
-const GameRoute = ({ children }: { children: React.ReactNode }) => {
+// 전환 애니메이션 래퍼 컴포넌트
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={
+          <PageTransition>
+            <Home />
+          </PageTransition>
+        } />
+        <Route path="/create" element={
+          <PageTransition>
+            <RoomCreation />
+          </PageTransition>
+        } />
+        <Route path="/join" element={
+          <PageTransition>
+            <Lobby />
+          </PageTransition>
+        } />
+        <Route path="/chill" element={
+          <GameRouteWrapper>
+            <PageTransition>
+              <ChillGame 
+                participants={useGameStore.getState().participants}
+                participantNumber={useGameStore.getState().participantNumber}
+                isHost={useGameStore.getState().isHost}
+                onGameEnd={(winnerNumber) => console.log('게임 종료, 승자:', winnerNumber)}
+              />
+            </PageTransition>
+          </GameRouteWrapper>
+        } />
+        <Route path="/freshhh" element={
+          <GameRouteWrapper>
+            <PageTransition>
+              <FreshhhGame 
+                participants={useGameStore.getState().participants}
+                currentUserId={useGameStore.getState().participants[useGameStore.getState().participantNumber - 1]?.id || ''}
+                isHost={useGameStore.getState().isHost}
+                onGameEnd={(results) => console.log('게임 종료:', results)}
+              />
+            </PageTransition>
+          </GameRouteWrapper>
+        } />
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+// 페이지 전환 효과 컴포넌트
+const PageTransition = ({ children }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{
+        type: "tween",
+        ease: [0.25, 0.1, 0.25, 1.0],
+        duration: 0.6
+      }}
+      className="w-full h-full"
+    >
+      {children}
+
+      {/* SVG 필터 정의 */}
+      <svg className="absolute inset-0 w-0 h-0 z-[-1]">
+        <defs>
+          <filter id="ink-transition">
+            <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
+    </motion.div>
+  );
+};
+
+// 게임 라우트 래퍼 컴포넌트
+const GameRouteWrapper = ({ children }) => {
   const { roomId, participants } = useGameStore();
   
-  // 방이 생성되지 않았거나 참가하지 않은 경우 홈으로 리다이렉트
   if (!roomId || participants.length === 0) {
     return <Navigate to="/" replace />;
   }
@@ -19,52 +99,22 @@ const GameRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  const { participants, participantNumber, isHost } = useGameStore();
-  
-  // 게임 종료 처리 함수
-  const handleGameEnd = (winnerId: string | number) => {
-    console.log('게임 종료, 승자:', winnerId);
-    // 필요한 경우 추가 로직 구현 (예: 결과 화면으로 이동)
-  };
-
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/create" element={<RoomCreation />} />
-        <Route path="/join" element={<Lobby />} />
-        
-        {/* 게임 라우트는 GameRoute로 감싸서 보호 */}
-        <Route 
-          path="/chill" 
-          element={
-            <GameRoute>
-              <ChillGame 
-                participants={participants}
-                participantNumber={participantNumber}
-                isHost={isHost}
-                onGameEnd={(winnerNumber) => handleGameEnd(winnerNumber)}
-              />
-            </GameRoute>
-          } 
-        />
-        
-        <Route 
-          path="/freshhh" 
-          element={
-            <GameRoute>
-              <FreshhhGame 
-                participants={participants}
-                currentUserId={participants[participantNumber - 1]?.id || ''}
-                isHost={isHost}
-                onGameEnd={(results) => handleGameEnd(results[0]?.participantId || '')}
-              />
-            </GameRoute>
-          } 
-        />
-      </Routes>
+      <AnimatedRoutes />
     </Router>
   );
 }
 
 export default App;
+
+import NetworkStatus from './components/common/NetworkStatus';
+
+function App() {
+  return (
+    <Router>
+      <NetworkStatus /> {/* 추가: 네트워크 상태 표시 */}
+      <AnimatedRoutes />
+    </Router>
+  );
+}
