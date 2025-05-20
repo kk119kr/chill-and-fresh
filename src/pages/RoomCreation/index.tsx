@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRCodeGenerator from '../../components/common/QRCodeGenerator';
 import Input from '../../components/common/Input';
@@ -87,15 +87,15 @@ const RoomCreation: React.FC = () => {
             error={nickname.length > 10 ? "닉네임은 최대 10자까지 입력 가능합니다." : undefined}
           />
           
-          <Button
-            onClick={handleCreateRoom}
-            disabled={!nickname.trim() || isConnecting || nickname.length > 10}
-            fullWidth
-            size="large"
-            isLoading={isConnecting}
-          >
-            {isConnecting ? '방 생성 중...' : '방 생성하기'}
-          </Button>
+<Button
+  onClick={handleCreateRoom}
+  disabled={!nickname.trim() || isConnecting || nickname.length > 10}
+  fullWidth
+  size="large"
+  isLoading={isConnecting}
+>
+  {isConnecting ? '방 생성 중...' : '방 생성하기'}
+</Button>
         </div>
       ) : (
         <div className="w-full max-w-md flex flex-col items-center">
@@ -141,24 +141,24 @@ const RoomCreation: React.FC = () => {
             <p className="text-center mb-4">게임 선택</p>
             <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
               <Button
-                onClick={() => handleStartGame('chill')}
-                disabled={participants.length < 1 || selectedGame !== null}
-                variant="primary"
-                size="large"
-                className="flex-1"
-              >
-                Chill (랜덤 당첨)
-              </Button>
+  onClick={() => handleStartGame('chill')}
+  disabled={participants.length < 1 || selectedGame !== null}
+  variant="primary"
+  size="large"
+  className="flex-1"
+>
+  Chill (랜덤 당첨)
+</Button>
 
-              <Button
-                onClick={() => handleStartGame('freshhh')}
-                disabled={participants.length < 1 || selectedGame !== null}
-                variant="secondary"
-                size="large"
-                className="flex-1"
-              >
-                Freshhh (눈치게임)
-              </Button>
+<Button
+  onClick={() => handleStartGame('freshhh')}
+  disabled={participants.length < 1 || selectedGame !== null}
+  variant="secondary"
+  size="large"
+  className="flex-1"
+>
+  Freshhh (눈치게임)
+</Button>
             </div>
             
             {participants.length < 1 && (
