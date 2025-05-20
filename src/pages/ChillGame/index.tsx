@@ -163,10 +163,11 @@ const ChillGame: React.FC<ChillGameProps> = ({
       )}
       
       {/* CSS 애니메이션 (당첨 시 반짝임 효과) */}
-      <style jsx>{`
-        .pulse-animation {
-          animation: pulse 1.5s infinite;
-        }
+      <style>{`
+  .pulse-animation {
+    animation: pulse 1.5s infinite;
+  }
+
         
         @keyframes pulse {
           0% { box-shadow: 0 0 0 0 rgba(200, 200, 200, 0.7); }

@@ -1,7 +1,7 @@
 #root {
-  max-width: 1280px;
+  width: 100%; /* max-width 제거하고 전체 너비 사용 */
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0; /* 패딩 제거 */
   text-align: center;
 }
 
