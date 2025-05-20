@@ -239,7 +239,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
       )}
       
       <motion.button
-        className="rounded-full w-64 h-64 flex items-center justify-center shadow-sm"
+        className="rounded-full w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center shadow-sm"
         style={{
           backgroundColor: getButtonBackgroundColor(),
           opacity: roundState === 'result' ? 0.5 : 1

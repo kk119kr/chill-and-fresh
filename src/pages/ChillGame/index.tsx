@@ -139,7 +139,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
       </div>
       
       <motion.button
-        className={`rounded-full w-64 h-64 flex items-center justify-center text-5xl font-light ${getButtonStyle()}`}
+        className={`rounded-full w-[70vw] h-[70vw] max-w-[500px] max-h-[500px] flex items-center justify-center text-5xl font-light ${getButtonStyle()}`}
         onClick={handleTap}
         disabled={gameState !== 'waiting' || userTapped}
         whileTap={{ scale: gameState === 'waiting' ? 0.98 : 1 }}
