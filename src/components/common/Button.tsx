@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
 
 export type ButtonVariant = 'primary' | 'secondary';
@@ -22,10 +22,28 @@ const Button: React.FC<ButtonProps> = ({
   isLoading = false,
   ...props
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  
-  // 기본 스타일
-  const baseStyle = 'transition-colors font-medium rounded-full focus:outline-none flex items-center justify-center overflow-hidden relative';
+  const [ripple, setRipple] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 0,
+    y: 0,
+    visible: false,
+  });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // 클릭 위치 기반 물결 효과
+  const handleRippleEffect = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      setRipple({ x, y, visible: true });
+      
+      // 물결 효과 종료
+      setTimeout(() => {
+        setRipple({ x: 0, y: 0, visible: false });
+      }, 600);
+    }
+  };
   
   // 버튼 크기별 스타일
   const sizeStyles = {
@@ -36,8 +54,8 @@ const Button: React.FC<ButtonProps> = ({
   
   // 버튼 변형별 스타일 (흑백만 사용)
   const variantStyles = {
-    primary: 'bg-white hover:bg-gray-50 shadow-sm text-gray-800 border border-gray-100',
-    secondary: 'bg-gray-50 border border-gray-100 hover:bg-white text-gray-700',
+    primary: 'bg-black text-white border-transparent',
+    secondary: 'bg-white text-black border border-black',
   };
   
   // 너비 스타일
@@ -48,7 +66,8 @@ const Button: React.FC<ButtonProps> = ({
   
   // 최종 클래스명 조합
   const buttonClass = `
-    ${baseStyle} 
+    relative overflow-hidden transition-all rounded-full flex items-center justify-center font-normal
+    transform translate-y-0 shadow-md
     ${sizeStyles[size]} 
     ${variantStyles[variant]} 
     ${widthStyle} 
@@ -58,18 +77,24 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <motion.button
+      ref={buttonRef}
       className={buttonClass}
       disabled={disabled || isLoading}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      whileTap={{ scale: disabled ? 1 : 0.98 }}
+      whileHover={!disabled ? { 
+        scale: 1.01, 
+        y: -2,
+        boxShadow: "0px 6px 10px rgba(0,0,0,0.15)"
+      } : {}}
+      whileTap={!disabled ? { 
+        scale: 0.98, 
+        y: 1,
+        boxShadow: "0px 2px 3px rgba(0,0,0,0.1)"
+      } : {}}
       initial={{ y: 5, opacity: 0 }}
       animate={{ 
         y: 0, 
         opacity: 1,
-        boxShadow: isHovered && !disabled ? 
-          "0px 8px 15px rgba(0,0,0,0.05)" : 
-          "0px 4px 10px rgba(0,0,0,0.03)"
+        boxShadow: !disabled ? "0px 4px 8px rgba(0,0,0,0.1)" : "none"
       }}
       transition={{
         type: "spring",
@@ -77,50 +102,50 @@ const Button: React.FC<ButtonProps> = ({
         damping: 25,
         opacity: { duration: 0.2 }
       }}
+      onClick={(e) => {
+        if (!disabled && !isLoading) {
+          handleRippleEffect(e);
+          props.onClick?.(e as any);
+        }
+      }}
       {...props as HTMLMotionProps<"button">}
     >
-      {/* 잉크 스플래시 효과 - 클릭 시 파장 효과 */}
-      {!disabled && (
-        <span className="ink-splash absolute inset-0 pointer-events-none rounded-full" />
+      {/* 물결 효과 */}
+      {ripple.visible && (
+        <motion.span
+          className={`absolute rounded-full ${variant === 'primary' ? 'bg-white' : 'bg-black'} opacity-20`}
+          initial={{ width: 0, height: 0, x: ripple.x, y: ripple.y }}
+          animate={{ 
+            width: 500, 
+            height: 500, 
+            x: ripple.x - 250, 
+            y: ripple.y - 250,
+            opacity: 0 
+          }}
+          transition={{ duration: 0.5 }}
+        />
       )}
 
       {isLoading ? (
         <>
-          <span className="mr-2">
-            <motion.svg 
-              className="w-4 h-4 text-gray-400"
+          <motion.div 
+            className="absolute inset-0 flex items-center justify-center"
+            animate={{ opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          >
+            <motion.div 
+              className={`w-5 h-5 rounded-full border-2 border-t-transparent ${
+                variant === 'primary' ? 'border-white' : 'border-black'
+              }`}
               animate={{ rotate: 360 }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-              viewBox="0 0 24 24"
-            >
-              <circle 
-                cx="12" cy="12" r="10" 
-                stroke="currentColor" 
-                strokeWidth="4" 
-                fill="none" 
-                strokeDasharray="60 30"
-              />
-            </motion.svg>
-          </span>
-          로딩 중...
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.div>
+          <span className="opacity-0">{children}</span>
         </>
-      ) : children}
-
-      {/* 스타일 추가 */}
-      <style>
-        {`
-          .ink-splash {
-            background-position: center;
-            transition: background 0.8s;
-          }
-          .ink-splash:active {
-            background-color: rgba(0, 0, 0, 0.05);
-            background-size: 100%;
-            transition: background 0s;
-            background-image: radial-gradient(circle, transparent 10%, rgba(0, 0, 0, 0.03) 10.01%);
-          }
-        `}
-      </style>
+      ) : (
+        children
+      )}
     </motion.button>
   );
 };
