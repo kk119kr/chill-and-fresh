@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import QRCodeScanner from '../../components/common/QRCodeScanner';
 import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
 import { useGameStore } from '../../store/gameStore';
 import socketService from '../../services/socketService';
 
@@ -150,14 +150,17 @@ const Lobby: React.FC = () => {
             fullWidth
           />
           
-          <Button
+          <motion.button
+            className={`w-full h-14 bg-white border border-gray-200 text-black rounded-full flex items-center justify-center text-lg font-light mt-4 ${
+              !roomId.trim() || !nickname.trim() || isJoining ? 'opacity-50' : ''
+            }`}
             onClick={handleJoinRoom}
             disabled={!roomId.trim() || !nickname.trim() || isJoining}
-            fullWidth
-            size="large"
+            whileTap={roomId.trim() && nickname.trim() && !isJoining ? { scale: 0.98 } : undefined}
+            layoutId="secondary-button" // Home 컴포넌트에서 가져온 ID
           >
             {isJoining ? '참여 중...' : '입장하기'}
-          </Button>
+          </motion.button>
           
           <button
             onClick={() => setJoinMethod('scan')}
