@@ -1,79 +1,16 @@
-// src/pages/Home/index.tsx 수정
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-
-// 잉크 버튼 SVG 경로 생성 유틸리티
-const generateInkPath = () => {
-  // 기본 원형에 약간의 불규칙성 추가
-  const points = 12;
-  const radius = 100;
-  const variance = 8; // 불규칙성 정도
-  
-  let path = "M";
-  for (let i = 0; i < points; i++) {
-    const angle = (i / points) * Math.PI * 2;
-    const r = radius + (Math.random() * variance * 2 - variance);
-    const x = Math.cos(angle) * r + 100;
-    const y = Math.sin(angle) * r + 100;
-    
-    if (i === 0) path += `${x},${y}`;
-    else path += ` L${x},${y}`;
-  }
-  path += " Z";
-  return path;
-};
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [selectedButton, setSelectedButton] = useState<'chill' | 'freshhh' | null>(null);
-  const [chillPath, setChillPath] = useState(generateInkPath());
-  const [freshhhPath, setFreshhhPath] = useState(generateInkPath());
   
-  // 주기적으로 잉크 경로 업데이트
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setChillPath(generateInkPath());
-      setFreshhhPath(generateInkPath());
-    }, 5000); // 5초마다 경로 변경
-    
-    return () => clearInterval(interval);
-  }, []);
-  
-  // 화면 터치 시 잉크 번짐 효과
-  const handleScreenTouch = (e: React.MouseEvent<HTMLDivElement>) => {
-    const splash = document.createElement('div');
-    splash.className = 'ink-splash';
-    splash.style.left = `${e.clientX}px`;
-    splash.style.top = `${e.clientY}px`;
-    document.body.appendChild(splash);
-    
-    // 애니메이션 시작
-    setTimeout(() => {
-      splash.classList.add('ink-splash-animate');
-    }, 10);
-    
-    // 애니메이션 종료 후 요소 제거
-    setTimeout(() => {
-      splash.remove();
-    }, 1000);
-  };
-
   // 게임 선택 및 화면 전환
   const handleSelectGame = (gameType: 'chill' | 'freshhh') => {
     setSelectedButton(gameType);
     
-    // 페이지 전환 효과
-    const transition = document.createElement('div');
-    transition.className = 'page-transition';
-    document.body.appendChild(transition);
-    
-    // 애니메이션 시작
-    setTimeout(() => {
-      transition.classList.add('page-wipe-in');
-    }, 10);
-    
-    // 애니메이션 종료 후 페이지 이동
+    // 애니메이션 후 페이지 이동
     setTimeout(() => {
       navigate('/create', { 
         state: { 
@@ -81,155 +18,60 @@ const Home: React.FC = () => {
           animateFrom: 'home'
         }
       });
-    }, 600);
+    }, 400);
   };
 
   return (
-    <div 
-      className="flex flex-col items-center justify-center min-h-screen bg-white"
-      onClick={handleScreenTouch}
-    >
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white px-6">
       <motion.h1 
-        className="text-7xl font-black mb-16 tracking-tight"
-        initial={{ opacity: 0, y: -40 }}
+        className="text-4xl font-medium mb-12 tracking-tight"
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.6 }}
       >
-        CHILL & FRESH
+        Chill & Fresh
       </motion.h1>
       
-      <div className="grid grid-cols-1 gap-12 w-full max-w-md px-8 relative">
+      <div className="w-full max-w-md space-y-6">
         {/* Chill 게임 버튼 */}
-        <motion.div
-          custom={selectedButton}
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, scale: selectedButton === 'chill' ? 1.2 : 0.8 }}
-          className="relative"
-          transition={{ duration: 0.8, delay: 0.2 }}
+        <motion.button
+          onClick={() => handleSelectGame('chill')}
+          disabled={selectedButton !== null}
+          className="w-full py-4 px-6 rounded-xl bg-gray-50 text-black border border-gray-100 shadow-sm flex items-center justify-between"
+          whileHover={{ scale: 1.02, backgroundColor: '#f9f9f9' }}
+          whileTap={{ scale: 0.98 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <button
-            onClick={() => handleSelectGame('chill')}
-            disabled={selectedButton !== null}
-            className="w-full aspect-square flex items-center justify-center text-5xl font-black tracking-tight text-white relative z-10 overflow-hidden"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <motion.svg 
-              viewBox="0 0 200 200" 
-              className="absolute inset-0 w-full h-full"
-              initial={false}
-              animate={{ 
-                rotate: [0, 1, -1, 0],
-                scale: [0.98, 1.02, 0.98],
-              }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 10,
-                ease: "easeInOut" 
-              }}
-            >
-              <motion.path 
-                d={chillPath} 
-                fill="black" 
-                initial={false}
-                animate={{ d: chillPath }}
-                transition={{ duration: 2, ease: "easeInOut" }}
-              />
-            </motion.svg>
-            
-            <motion.span
-              className="z-20 relative"
-              animate={{ 
-                y: [0, -5, 0],
-              }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 3,
-                ease: "easeInOut" 
-              }}
-            >
-              CHILL
-            </motion.span>
-          </button>
-        </motion.div>
+          <span className="text-xl font-medium">Chill</span>
+          <span className="text-sm text-gray-500">랜덤 당첨 게임</span>
+        </motion.button>
 
         {/* Freshhh 게임 버튼 */}
-        <motion.div
-          custom={selectedButton}
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, scale: selectedButton === 'freshhh' ? 1.2 : 0.8 }}
-          className="relative"
-          transition={{ duration: 0.8, delay: 0.4 }}
+        <motion.button
+          onClick={() => handleSelectGame('freshhh')}
+          disabled={selectedButton !== null}
+          className="w-full py-4 px-6 rounded-xl bg-black text-white flex items-center justify-between"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <button
-            onClick={() => handleSelectGame('freshhh')}
-            disabled={selectedButton !== null}
-            className="w-full aspect-square flex items-center justify-center text-5xl font-black tracking-tight text-black relative z-10 overflow-hidden"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <motion.svg 
-              viewBox="0 0 200 200" 
-              className="absolute inset-0 w-full h-full"
-              initial={false}
-              animate={{ 
-                rotate: [0, -1, 1, 0],
-                scale: [0.98, 1.02, 0.98],
-              }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 10,
-                ease: "easeInOut" 
-              }}
-            >
-              <motion.path 
-                d={freshhhPath} 
-                fill="white" 
-                stroke="black"
-                strokeWidth="1"
-                initial={false}
-                animate={{ d: freshhhPath }}
-                transition={{ duration: 2, ease: "easeInOut" }}
-              />
-            </motion.svg>
-            
-            <motion.span
-              className="z-20 relative"
-              animate={{ 
-                y: [0, -5, 0],
-              }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 3,
-                ease: "easeInOut" 
-              }}
-            >
-              FRESHHH
-            </motion.span>
-          </button>
-        </motion.div>
+          <span className="text-xl font-medium">Freshhh</span>
+          <span className="text-sm text-gray-300">눈치 게임</span>
+        </motion.button>
       </div>
       
-      <motion.div
-        className="mt-12"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.6 }}
+      <motion.p
+        className="text-xs text-gray-400 mt-12"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
       >
-        <p className="text-sm font-medium uppercase tracking-widest">
-          탭하여 게임을 선택하세요
-        </p>
-      </motion.div>
-      
-      {/* SVG 필터 정의 */}
-      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-        <defs>
-          <filter id="ink-distort">
-            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" seed="1" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="10" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      </svg>
+        탭하여 게임을 선택하세요
+      </motion.p>
     </div>
   );
 };
