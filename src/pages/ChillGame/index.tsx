@@ -5,6 +5,8 @@ interface ChillButtonProps {
   number: number;
   isActive: boolean;
   isWinner: boolean;
+  gameState: 'waiting' | 'spinning' | 'result';
+  userTapped: boolean;
   onTap: () => void;
 }
 
