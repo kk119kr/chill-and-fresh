@@ -39,24 +39,26 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       {/* 고대비 모드 적용 스타일 */}
       {highContrast && (
-        <style jsx global>{`
-          body {
-            color: #000000 !important;
-            background-color: #ffffff !important;
-          }
-          
-          button, input, .bg-white, .bg-gray-50, .bg-gray-100 {
-            border: 2px solid #000000 !important;
-          }
-          
-          h1, h2, h3, p {
-            color: #000000 !important;
-          }
-          
-          .text-gray-500, .text-gray-400 {
-            color: #333333 !important;
-          }
-        `}</style>
+        <style>
+          {`
+            body {
+              color: #000000 !important;
+              background-color: #ffffff !important;
+            }
+            
+            button, input, .bg-white, .bg-gray-50, .bg-gray-100 {
+              border: 2px solid #000000 !important;
+            }
+            
+            h1, h2, h3, p {
+              color: #000000 !important;
+            }
+            
+            .text-gray-500, .text-gray-400 {
+              color: #333333 !important;
+            }
+          `}
+        </style>
       )}
     </ThemeContext.Provider>
   );

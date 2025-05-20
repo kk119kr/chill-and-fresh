@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
+interface ChillButtonProps {
+  number: number;
+  isActive: boolean;
+  isWinner: boolean;
+  gameState: 'waiting' | 'spinning' | 'result';
+  userTapped: boolean;
+  onTap: () => void;
+}
+
 interface ChillGameProps {
   participants: { id: string; nickname: string }[];
   participantNumber: number; // 현재 사용자의 번호
@@ -178,7 +187,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
 };
 
 // 유기적인 Chill 버튼 컴포넌트
-const ChillButton = ({ number, isActive, isWinner, gameState, userTapped, onTap }) => {
+const ChillButton: React.FC<ChillButtonProps> = ({ number, isActive, isWinner, gameState, userTapped, onTap }) => {
   return (
     <motion.div
       className="relative flex items-center justify-center"

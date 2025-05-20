@@ -1,10 +1,10 @@
-import React, { ButtonHTMLAttributes, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, HTMLMotionProps } from 'framer-motion';
 
 export type ButtonVariant = 'primary' | 'secondary';
 export type ButtonSize = 'small' | 'medium' | 'large';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;
@@ -77,7 +77,7 @@ const Button: React.FC<ButtonProps> = ({
         damping: 25,
         opacity: { duration: 0.2 }
       }}
-      {...props}
+      {...props as HTMLMotionProps<"button">}
     >
       {/* 잉크 스플래시 효과 - 클릭 시 파장 효과 */}
       {!disabled && (
@@ -107,18 +107,20 @@ const Button: React.FC<ButtonProps> = ({
       ) : children}
 
       {/* 스타일 추가 */}
-      <style jsx>{`
-        .ink-splash {
-          background-position: center;
-          transition: background 0.8s;
-        }
-        .ink-splash:active {
-          background-color: rgba(0, 0, 0, 0.05);
-          background-size: 100%;
-          transition: background 0s;
-          background-image: radial-gradient(circle, transparent 10%, rgba(0, 0, 0, 0.03) 10.01%);
-        }
-      `}</style>
+      <style>
+        {`
+          .ink-splash {
+            background-position: center;
+            transition: background 0.8s;
+          }
+          .ink-splash:active {
+            background-color: rgba(0, 0, 0, 0.05);
+            background-size: 100%;
+            transition: background 0s;
+            background-image: radial-gradient(circle, transparent 10%, rgba(0, 0, 0, 0.03) 10.01%);
+          }
+        `}
+      </style>
     </motion.button>
   );
 };
