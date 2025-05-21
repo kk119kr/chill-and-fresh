@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Home from './pages/Home';
@@ -13,7 +14,7 @@ interface PageTransitionProps {
   children: React.ReactNode;
 }
 
-// src/App.tsx의 PageTransition 컴포넌트 수정
+// 페이지 전환 애니메이션 컴포넌트
 const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <motion.div
@@ -47,7 +48,7 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   );
 };
 
-// 게임 라우트 래퍼 컴포넌트
+// 게임 라우트 접근 제어 래퍼 컴포넌트
 const GameRouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { roomId, participants } = useGameStore();
   
@@ -58,7 +59,7 @@ const GameRouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children })
   return <>{children}</>;
 };
 
-// 전환 애니메이션 래퍼 컴포넌트
+// 애니메이션 라우트 컴포넌트
 const AnimatedRoutes = () => {
   const location = useLocation();
   
@@ -113,7 +114,28 @@ const AnimatedRoutes = () => {
 function App() {
   return (
     <Router>
+      {/* 네트워크 상태 표시 */}
       <NetworkStatus />
+      
+      {/* 배경 종이 텍스처 - 아주 미세한 노이즈 */}
+      <div className="fixed inset-0 w-full h-full pointer-events-none z-[-1] opacity-5 bg-paper-texture"></div>
+      
+      {/* 모든 페이지에 적용되는 잉크 효과 SVG 필터 정의 */}
+      <svg className="fixed inset-0 w-0 h-0" aria-hidden="true">
+        <defs>
+          <filter id="global-ink-filter">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" seed="5" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="global-ink-glow">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
+            <feComposite in="SourceGraphic" in2="glow" operator="over" />
+          </filter>
+        </defs>
+      </svg>
+      
+      {/* 페이지 라우팅 */}
       <AnimatedRoutes />
     </Router>
   );

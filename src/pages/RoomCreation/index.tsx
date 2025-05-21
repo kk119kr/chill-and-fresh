@@ -23,9 +23,52 @@ const RoomCreation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [gameSelection, setGameSelection] = useState<'chill' | 'freshhh' | null>(selectedGame || null);
   const [startingGame, setStartingGame] = useState(false);
+  const [inkBlobs, setInkBlobs] = useState<Array<{id: number, path: string}>>([]);
   
   // Zustand 스토어에서 필요한 상태와 액션 가져오기
   const { roomId, participants, createRoom } = useGameStore();
+  
+  // 잉크 형태 경로 생성
+  const generateInkPath = (seed: number) => {
+    const points = 8 + Math.floor(seed % 4);
+    const radius = 30 + (seed * 10);
+    const variance = 15 + (seed * 2);
+    
+    let path = "M";
+    for (let i = 0; i < points; i++) {
+      const angle = (i / points) * Math.PI * 2;
+      const r = radius + (Math.random() * variance * 2 - variance);
+      const x = Math.cos(angle) * r + 50; // 중심점 50,50
+      const y = Math.sin(angle) * r + 50;
+      
+      if (i === 0) path += `${x},${y}`;
+      else path += ` L${x},${y}`;
+    }
+    path += " Z";
+    return path;
+  };
+  
+  // 배경 잉크 효과 생성
+  useEffect(() => {
+    // 초기 잉크 효과 생성
+    const initialBlobs = Array(3).fill(0).map((_, i) => ({
+      id: i,
+      path: generateInkPath(i * 2)
+    }));
+    setInkBlobs(initialBlobs);
+    
+    // 주기적으로 잉크 형태 변경
+    const interval = setInterval(() => {
+      setInkBlobs(prev => 
+        prev.map(blob => ({
+          ...blob,
+          path: generateInkPath(blob.id * 2)
+        }))
+      );
+    }, 8000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // QR 코드에 포함될 URL 생성
   const qrCodeValue = isRoomCreated 
@@ -56,6 +99,11 @@ const RoomCreation: React.FC = () => {
       
       // 3. 방 생성 성공
       setIsRoomCreated(true);
+      
+      // 진동 피드백 (모바일)
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
     } catch (err) {
       console.error('방 생성 오류:', err);
       setError('방 생성 중 오류가 발생했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.');
@@ -74,6 +122,11 @@ const RoomCreation: React.FC = () => {
     setGameSelection(gameType);
     setStartingGame(true);
     
+    // 진동 피드백
+    if (navigator.vibrate) {
+      navigator.vibrate([30, 50, 30]);
+    }
+    
     // 게임 시작
     setTimeout(() => {
       // 소켓을 통해 게임 시작 메시지 전송
@@ -89,9 +142,46 @@ const RoomCreation: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-ink-white p-4 relative overflow-hidden">
+      {/* 배경 잉크 효과 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {inkBlobs.map((blob, index) => (
+          <motion.svg
+            key={blob.id}
+            className="absolute"
+            viewBox="0 0 100 100"
+            style={{
+              top: `${10 + (index * 30)}%`,
+              left: `${20 + (index * 25)}%`,
+              width: `${20 + (index * 5)}vw`,
+              height: `${20 + (index * 5)}vw`,
+              opacity: 0.03
+            }}
+            initial={false}
+            animate={{
+              x: [0, 10, -5, 0], 
+              y: [0, -8, 5, 0],
+              rotate: [0, 3, -2, 0],
+              scale: [1, 1.05, 0.98, 1]
+            }}
+            transition={{
+              repeat: Infinity,
+              duration: 20 + (index * 5),
+              ease: "easeInOut"
+            }}
+          >
+            <motion.path
+              d={blob.path}
+              fill="#000000"
+              animate={{ d: blob.path }}
+              transition={{ duration: 8, ease: "easeInOut" }}
+            />
+          </motion.svg>
+        ))}
+      </div>
+      
       <motion.h1 
-        className="text-4xl font-thin mb-8"
+        className="text-4xl font-black mb-8"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
@@ -101,13 +191,13 @@ const RoomCreation: React.FC = () => {
       
       {error && (
         <motion.div 
-          className="mb-4 px-4 py-2 bg-red-50 text-red-500 rounded-lg text-center w-full max-w-md"
+          className="mb-4 px-4 py-2 bg-state-error text-ink-black rounded-lg text-center w-full max-w-md"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.3 }}
         >
-          {error}
+          <p className="text-sm">{error}</p>
         </motion.div>
       )}
       
@@ -147,7 +237,7 @@ const RoomCreation: React.FC = () => {
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-sm text-gray-500"
+                  className="text-sm text-ink-gray-500"
                 >
                   선택된 게임: <span className="font-medium">{selectedGame === 'chill' ? 'Chill (랜덤 당첨)' : 'Freshhh (눈치게임)'}</span>
                 </motion.p>
@@ -162,8 +252,30 @@ const RoomCreation: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="mb-4">
-              <QRCodeGenerator value={qrCodeValue} size={240} title="이 QR 코드를 스캔하여 참여하세요" />
+            <div className="mb-4 relative">
+              {/* QR 코드 주변 유기적인 효과 - 잉크가 종이에 번지는 효과 */}
+              <motion.div 
+                className="absolute -inset-3 rounded-xl"
+                initial={{ opacity: 0.05 }}
+                animate={{ 
+                  opacity: [0.03, 0.06, 0.03],
+                  scale: [0.98, 1.02, 0.98]
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: 6,
+                  ease: "easeInOut"
+                }}
+                style={{ filter: 'url(#ink-spread)' }}
+              >
+                <div className="w-full h-full bg-ink-black rounded-xl"></div>
+              </motion.div>
+              
+              <QRCodeGenerator 
+                value={qrCodeValue} 
+                size={240} 
+                title="이 QR 코드를 스캔하여 참여하세요" 
+              />
             </div>
             
             <div className="mb-8 text-center w-full">
@@ -178,9 +290,24 @@ const RoomCreation: React.FC = () => {
               />
             </div>
             
-            <div className="w-full mb-8">
+            <div className="w-full mb-8 relative">
+              <motion.div 
+                className="absolute -inset-2 rounded-lg opacity-10"
+                animate={{ 
+                  opacity: [0.05, 0.1, 0.05],
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: 4
+                }}
+                style={{ 
+                  background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 70%)',
+                  filter: 'blur(8px)'
+                }}
+              />
+            
               <h3 className="text-lg mb-3">참가자 목록</h3>
-              <div className="bg-gray-50 rounded-lg p-4 min-h-32 max-h-64 overflow-y-auto">
+              <div className="bg-ink-gray-100 rounded-lg p-4 min-h-32 max-h-64 overflow-y-auto shadow-inner-emboss">
                 {participants.length > 0 ? (
                   <ul>
                     {participants.map((participant) => (
@@ -191,9 +318,9 @@ const RoomCreation: React.FC = () => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3 }}
                       >
-                        <span className="text-gray-800">{participant.nickname}</span>
+                        <span className="text-ink-black">{participant.nickname}</span>
                         {participant.isHost && (
-                          <span className="ml-2 text-xs bg-gray-200 px-2 py-1 rounded-full">
+                          <span className="ml-2 text-xs bg-ink-gray-200 px-2 py-1 rounded-full">
                             방장
                           </span>
                         )}
@@ -201,7 +328,7 @@ const RoomCreation: React.FC = () => {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-500">아직 참가자가 없습니다</p>
+                  <p className="text-sm text-ink-gray-500">아직 참가자가 없습니다</p>
                 )}
               </div>
             </div>
@@ -223,7 +350,7 @@ const RoomCreation: React.FC = () => {
                       disabled={participants.length < 1}
                       variant="primary"
                       size="large"
-                      className={`flex-1 ${selectedGame === 'chill' ? 'ring-2 ring-black' : ''}`}
+                      className={`flex-1 ${selectedGame === 'chill' ? 'ring-2 ring-ink-black' : ''}`}
                     >
                       Chill (랜덤 당첨)
                     </Button>
@@ -233,14 +360,14 @@ const RoomCreation: React.FC = () => {
                       disabled={participants.length < 1}
                       variant="secondary"
                       size="large"
-                      className={`flex-1 ${selectedGame === 'freshhh' ? 'ring-2 ring-black' : ''}`}
+                      className={`flex-1 ${selectedGame === 'freshhh' ? 'ring-2 ring-ink-black' : ''}`}
                     >
                       Freshhh (눈치게임)
                     </Button>
                   </div>
                   
                   {participants.length < 1 && (
-                    <p className="text-xs text-gray-500 text-center mt-2">
+                    <p className="text-xs text-ink-gray-500 text-center mt-2">
                       게임 시작을 위해 최소 1명의 참가자가 필요합니다
                     </p>
                   )}
@@ -254,7 +381,7 @@ const RoomCreation: React.FC = () => {
                   transition={{ duration: 0.5 }}
                 >
                   <motion.p 
-                    className="text-xl font-light text-gray-700"
+                    className="text-xl font-light text-ink-gray-700"
                     animate={{ 
                       opacity: [0.7, 1, 0.7],
                       scale: [0.98, 1.02, 0.98]
@@ -278,19 +405,13 @@ const RoomCreation: React.FC = () => {
                   >
                     <div className="flex space-x-2">
                       <motion.div 
-                        className="w-3 h-3 bg-gray-400 rounded-full"
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ repeat: Infinity, duration: 1, delay: 0 }}
+                        className="w-3 h-3 bg-ink-gray-400 rounded-full loading-dot"
                       />
                       <motion.div 
-                        className="w-3 h-3 bg-gray-400 rounded-full"
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
+                        className="w-3 h-3 bg-ink-gray-400 rounded-full loading-dot"
                       />
                       <motion.div 
-                        className="w-3 h-3 bg-gray-400 rounded-full"
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
+                        className="w-3 h-3 bg-ink-gray-400 rounded-full loading-dot"
                       />
                     </div>
                   </motion.div>
