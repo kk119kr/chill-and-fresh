@@ -24,6 +24,8 @@ const RoomCreation: React.FC = () => {
   const [gameSelection, setGameSelection] = useState<'chill' | 'freshhh' | null>(selectedGame || null);
   const [startingGame, setStartingGame] = useState(false);
   const [inkBlobs, setInkBlobs] = useState<Array<{id: number, path: string}>>([]);
+  const [connectionRetries, setConnectionRetries] = useState(0);
+  const [showManualOptions, setShowManualOptions] = useState(false);
   
   // Zustand 스토어에서 필요한 상태와 액션 가져오기
   const { roomId, participants, createRoom } = useGameStore();
@@ -70,6 +72,25 @@ const RoomCreation: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
   
+  // 소켓 연결 상태 확인
+  useEffect(() => {
+    if (isRoomCreated) {
+      // 방이 생성된 후 정기적으로 연결 상태 확인
+      const connectionCheck = setInterval(() => {
+        const status = socketService.getConnectionStatus();
+        
+        if (status === 'error' || status === 'disconnected') {
+          setError(`연결 상태: ${status}. ${socketService.getErrorMessage()}`);
+        } else if (error && status === 'connected') {
+          // 연결이 복구된 경우 오류 메시지 제거
+          setError(null);
+        }
+      }, 3000);
+      
+      return () => clearInterval(connectionCheck);
+    }
+  }, [isRoomCreated, error]);
+  
   // QR 코드에 포함될 URL 생성
   const qrCodeValue = isRoomCreated 
     ? `${window.location.origin}/join?roomId=${roomId}` 
@@ -82,6 +103,23 @@ const RoomCreation: React.FC = () => {
       console.log(`Home에서 ${selectedGame} 게임이 선택되었습니다.`);
     }
   }, [selectedGame, animateFrom]);
+  
+  // 소켓 서버 URL 수동 변경
+  const handleManualServerUrl = async () => {
+    const urlInput = prompt('소켓 서버 URL을 입력하세요 (예: http://localhost:3001)', socketService.getServerUrl?.() || 'http://localhost:3001');
+    
+    if (!urlInput) return;
+    
+    // 수동으로 서버 URL 설정
+    if (typeof socketService.setServerUrl === 'function') {
+      socketService.setServerUrl(urlInput);
+      
+      // 다시 연결 시도
+      handleCreateRoom();
+    } else {
+      setError('이 버전의 socketService는 수동 URL 설정을 지원하지 않습니다.');
+    }
+  };
   
   // 방 생성 함수
   const handleCreateRoom = async () => {
@@ -99,6 +137,7 @@ const RoomCreation: React.FC = () => {
       
       // 3. 방 생성 성공
       setIsRoomCreated(true);
+      setConnectionRetries(0);
       
       // 진동 피드백 (모바일)
       if (navigator.vibrate) {
@@ -106,16 +145,38 @@ const RoomCreation: React.FC = () => {
       }
     } catch (err) {
       console.error('방 생성 오류:', err);
-      setError('방 생성 중 오류가 발생했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.');
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(`방 생성 중 오류가 발생했습니다: ${errorMessage}`);
+      setConnectionRetries(prev => prev + 1);
+      
+      // 3번 이상 실패하면 수동 옵션 표시
+      if (connectionRetries >= 2) {
+        setShowManualOptions(true);
+      }
     } finally {
       setIsConnecting(false);
     }
+  };
+  
+  // 연결 재시도
+  const handleRetryConnection = () => {
+    // 기존 연결 해제
+    socketService.disconnect();
+    // 다시 연결 시도
+    handleCreateRoom();
   };
   
   // 게임 시작 함수
   const handleStartGame = (gameType: 'chill' | 'freshhh') => {
     if (participants.length < 1) {
       setError('최소 1명의 참가자가 필요합니다.');
+      return;
+    }
+    
+    // 연결 상태 확인
+    const connectionStatus = socketService.getConnectionStatus();
+    if (connectionStatus !== 'connected') {
+      setError(`소켓 연결 상태가 불안정합니다(${connectionStatus}). 잠시 후 다시 시도해주세요.`);
       return;
     }
     
@@ -128,17 +189,23 @@ const RoomCreation: React.FC = () => {
     }
     
     // 게임 시작
-    setTimeout(() => {
+    try {
       // 소켓을 통해 게임 시작 메시지 전송
       socketService.startGame(gameType);
       
       // 게임 화면으로 이동
-      navigate(`/${gameType}`, {
-        state: {
-          fromRoom: true
-        }
-      });
-    }, 1000);
+      setTimeout(() => {
+        navigate(`/${gameType}`, {
+          state: {
+            fromRoom: true
+          }
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('게임 시작 오류:', err);
+      setError('게임 시작 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setStartingGame(false);
+    }
   };
 
   return (
@@ -198,6 +265,22 @@ const RoomCreation: React.FC = () => {
           transition={{ duration: 0.3 }}
         >
           <p className="text-sm">{error}</p>
+          {showManualOptions && !isRoomCreated && (
+            <div className="mt-2 flex flex-wrap justify-center gap-2">
+              <button 
+                onClick={handleRetryConnection}
+                className="text-xs px-3 py-1 bg-white rounded-full shadow-sm hover:shadow"
+              >
+                다시 시도
+              </button>
+              <button 
+                onClick={handleManualServerUrl}
+                className="text-xs px-3 py-1 bg-white rounded-full shadow-sm hover:shadow"
+              >
+                서버 URL 변경
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
       
@@ -229,7 +312,7 @@ const RoomCreation: React.FC = () => {
               isLoading={isConnecting}
               variant={selectedGame === 'chill' ? 'primary' : selectedGame === 'freshhh' ? 'secondary' : 'primary'}
             >
-              {isConnecting ? '방 생성 중...' : '방 생성하기'}
+              {isConnecting ? `방 생성 중... ${connectionRetries > 0 ? `(시도 ${connectionRetries + 1})` : ''}` : '방 생성하기'}
             </Button>
             
             {selectedGame && (
@@ -288,6 +371,32 @@ const RoomCreation: React.FC = () => {
                 className="text-center tracking-wider font-medium"
                 helperText="QR코드를 스캔하거나 방 ID를 공유하세요"
               />
+              
+              {/* 현재 소켓 연결 상태 표시 */}
+              <div className="mt-2 text-xs">
+                <span className="inline-flex items-center">
+                  <span 
+                    className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                      socketService.getConnectionStatus() === 'connected' ? 'bg-green-500' : 
+                      socketService.getConnectionStatus() === 'connecting' ? 'bg-yellow-500' : 
+                      'bg-red-500'
+                    }`}
+                  ></span>
+                  서버 상태: {
+                    socketService.getConnectionStatus() === 'connected' ? '연결됨' : 
+                    socketService.getConnectionStatus() === 'connecting' ? '연결 중' : 
+                    '연결 안됨'
+                  }
+                  {socketService.getConnectionStatus() !== 'connected' && (
+                    <button 
+                      onClick={handleRetryConnection}
+                      className="ml-2 underline text-ink-gray-500"
+                    >
+                      재연결
+                    </button>
+                  )}
+                </span>
+              </div>
             </div>
             
             <div className="w-full mb-8 relative">
@@ -347,7 +456,7 @@ const RoomCreation: React.FC = () => {
                   <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
                     <Button
                       onClick={() => handleStartGame('chill')}
-                      disabled={participants.length < 1}
+                      disabled={participants.length < 1 || socketService.getConnectionStatus() !== 'connected'}
                       variant="primary"
                       size="large"
                       className={`flex-1 ${selectedGame === 'chill' ? 'ring-2 ring-ink-black' : ''}`}
@@ -357,7 +466,7 @@ const RoomCreation: React.FC = () => {
 
                     <Button
                       onClick={() => handleStartGame('freshhh')}
-                      disabled={participants.length < 1}
+                      disabled={participants.length < 1 || socketService.getConnectionStatus() !== 'connected'}
                       variant="secondary"
                       size="large"
                       className={`flex-1 ${selectedGame === 'freshhh' ? 'ring-2 ring-ink-black' : ''}`}
@@ -369,6 +478,12 @@ const RoomCreation: React.FC = () => {
                   {participants.length < 1 && (
                     <p className="text-xs text-ink-gray-500 text-center mt-2">
                       게임 시작을 위해 최소 1명의 참가자가 필요합니다
+                    </p>
+                  )}
+                  
+                  {socketService.getConnectionStatus() !== 'connected' && participants.length >= 1 && (
+                    <p className="text-xs text-ink-gray-500 text-center mt-2">
+                      서버에 연결되어 있지 않습니다. 재연결 후 시도해주세요.
                     </p>
                   )}
                 </motion.div>
@@ -421,6 +536,39 @@ const RoomCreation: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* 연결 문제 발생 시 표시되는 디버그 정보 패널 */}
+      {isRoomCreated && error && (
+        <motion.div
+          className="fixed bottom-4 left-4 right-4 bg-white p-4 rounded-lg shadow-lg border border-ink-gray-200 text-xs max-h-32 overflow-y-auto"
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <h4 className="font-bold mb-1">연결 문제 해결을 위한 정보</h4>
+          <p className="mb-2">{error}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRetryConnection}
+              className="px-2 py-1 bg-ink-gray-100 rounded-md hover:bg-ink-gray-200"
+            >
+              재연결 시도
+            </button>
+            <button
+              onClick={handleManualServerUrl}
+              className="px-2 py-1 bg-ink-gray-100 rounded-md hover:bg-ink-gray-200"
+            >
+              서버 URL 변경
+            </button>
+            <button
+              onClick={() => setError(null)}
+              className="px-2 py-1 bg-ink-gray-100 rounded-md hover:bg-ink-gray-200 ml-auto"
+            >
+              닫기
+            </button>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
