@@ -1,9 +1,10 @@
-// server/index.js - ES 모듈 방식으로 수정
-import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import { networkInterfaces } from 'os';
+// server/index.js
+// CommonJS 방식으로 변경
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const { networkInterfaces } = require('os');
 
 // 서버 설정
 const app = express();

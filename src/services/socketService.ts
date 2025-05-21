@@ -59,6 +59,7 @@ class SocketService {
         
         console.log(`서버 URL: ${this.serverUrl}`);
         
+        // Socket.IO 연결 옵션 수정
         this.socket = io(this.serverUrl, {
           query: {
             roomId,
@@ -67,8 +68,10 @@ class SocketService {
           reconnectionAttempts: this.maxReconnectAttempts,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
-          timeout: 10000,
-          transports: ['websocket', 'polling'],  // websocket을 먼저 시도
+          timeout: 20000, // 시간 초과 늘리기
+          transports: ['polling', 'websocket'], // polling을 먼저 시도하도록 변경
+          forceNew: true, // 새 연결 강제
+          autoConnect: true, // 자동 연결
         });
         
         this.socket.on('connect', () => {
