@@ -46,8 +46,12 @@ class SocketService {
     
     console.log(`소켓 연결 시도: roomId=${roomId}, isHost=${isHost}`);
     
-    // 개발 환경에서는 localhost 사용
-    this.serverUrl = 'http://localhost:3001';
+    // 서버 URL 설정 - 개발 환경에서는 현재 Window의 호스트와 포트 3001 사용
+    const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+    const hostname = window.location.hostname;
+    this.serverUrl = `${protocol}://${hostname}:3001`;
+    
+    console.log(`서버 URL: ${this.serverUrl}`);
     
     return new Promise((resolve, reject) => {
       try {
@@ -56,8 +60,6 @@ class SocketService {
           this.socket.disconnect();
           this.socket = null;
         }
-        
-        console.log(`서버 URL: ${this.serverUrl}`);
         
         // Socket.IO 연결 옵션 수정
         this.socket = io(this.serverUrl, {
@@ -69,7 +71,7 @@ class SocketService {
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           timeout: 20000, // 시간 초과 늘리기
-          transports: ['polling', 'websocket'], // polling을 먼저 시도하도록 변경
+          transports: ['websocket', 'polling'], // websocket 먼저 시도
           forceNew: true, // 새 연결 강제
           autoConnect: true, // 자동 연결
         });
@@ -78,6 +80,10 @@ class SocketService {
           console.log('소켓 연결 성공');
           this.connectionStatus = 'connected';
           this.reconnectAttempts = 0;
+          
+          // 연결 성공 시 이벤트 핸들러도 등록
+          this.registerEventHandlers();
+          
           resolve(true);
         });
         
@@ -100,10 +106,6 @@ class SocketService {
             reject(new Error('서버에서 연결을 해제했습니다.'));
           }
         });
-        
-        // 소켓 이벤트 핸들러 등록
-        this.registerEventHandlers();
-        
       } catch (error) {
         console.error('소켓 초기화 오류:', error);
         this.connectionStatus = 'error';

@@ -1,25 +1,28 @@
-// server/index.js
-// CommonJS 방식으로 변경
-const express = require('express');
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const { networkInterfaces } = require('os');
+// server/index.js (ES 모듈 형식 및 CORS 개선)
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { networkInterfaces } from 'os';
 
 // 서버 설정
 const app = express();
 const server = createServer(app);
+
+// CORS 설정 개선
 const io = new Server(server, {
   cors: {
     origin: "*", // 모든 출처 허용 (개발 환경)
     methods: ["GET", "POST"],
-    credentials: false
+    credentials: true,
+    allowedHeaders: ["my-custom-header"],
   },
+  transports: ['websocket', 'polling']
 });
 
 app.use(cors({
   origin: "*", // 모든 출처 허용 (개발 환경)
-  credentials: false
+  credentials: true
 }));
 app.use(express.json());
 
@@ -127,22 +130,26 @@ io.on('connection', (socket) => {
       return;
     }
     
-    switch (message.type) {
-      case 'JOIN_REQUEST':
-        handleJoinRequest(socket, room, message);
-        break;
-        
-      case 'GAME_START':
-        handleGameStart(socket, room, message);
-        break;
-        
-      case 'TAP_EVENT':
-        handleTapEvent(socket, room, message);
-        break;
-        
-      default:
-        // 다른 메시지는 그대로 전달
-        forwardMessageToRoom(room.id, message);
+    try {
+      switch (message.type) {
+        case 'JOIN_REQUEST':
+          handleJoinRequest(socket, room, message);
+          break;
+          
+        case 'GAME_START':
+          handleGameStart(socket, room, message);
+          break;
+          
+        case 'TAP_EVENT':
+          handleTapEvent(socket, room, message);
+          break;
+          
+        default:
+          // 다른 메시지는 그대로 전달
+          forwardMessageToRoom(room.id, message);
+      }
+    } catch (error) {
+      logWithTimestamp('메시지 처리 오류:', error);
     }
   });
   
@@ -202,6 +209,11 @@ io.on('connection', (socket) => {
         logWithTimestamp(`방 삭제됨: ${room.id}`);
       }
     }
+  });
+  
+  // 에러 이벤트 처리
+  socket.on('error', (error) => {
+    logWithTimestamp('소켓 오류:', error);
   });
 });
 
