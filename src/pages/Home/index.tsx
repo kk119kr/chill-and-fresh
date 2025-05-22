@@ -6,13 +6,16 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<'chill' | 'freshhh' | null>(null);
   
   // 드래그 임계값
   const DRAG_THRESHOLD = 60;
   
   // 게임 선택 및 화면 전환
   const handleSelectGame = (gameType: 'chill' | 'freshhh') => {
-    // 애니메이션 후 페이지 이동
+    setSelectedGame(gameType);
+    
+    // 모핑 애니메이션을 위해 잠시 대기 후 페이지 이동
     setTimeout(() => {
       navigate('/create', { 
         state: { 
@@ -20,7 +23,7 @@ const Home: React.FC = () => {
           animateFrom: 'home'
         }
       });
-    }, 400);
+    }, 200); // 짧은 딜레이로 모핑 시작을 보여줌
   };
 
   // 드래그 핸들러
@@ -94,49 +97,7 @@ const Home: React.FC = () => {
         </h2>
       </motion.div>
       
-      {/* 실선 드래그 가이드라인 */}
-      <div className="absolute top-1/2 left-1/2 z-5 pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
-        {/* 위쪽 실선 가이드 */}
-        <motion.div
-          className="absolute w-px bg-gray-400"
-          style={{
-            left: '-0.5px',
-            top: '-120px',
-            height: '80px',
-          }}
-          animate={{
-            opacity: [0.3, 0.7, 0.3],
-            scaleY: [0.8, 1.2, 0.8]
-          }}
-          transition={{
-            repeat: Infinity,
-            duration: 3,
-            ease: "easeInOut"
-          }}
-        />
-        
-        {/* 아래쪽 실선 가이드 */}
-        <motion.div
-          className="absolute w-px bg-gray-400"
-          style={{
-            left: '-0.5px',
-            top: '40px',
-            height: '80px',
-          }}
-          animate={{
-            opacity: [0.3, 0.7, 0.3],
-            scaleY: [0.8, 1.2, 0.8]
-          }}
-          transition={{
-            repeat: Infinity,
-            duration: 3,
-            ease: "easeInOut",
-            delay: 1.5
-          }}
-        />
-      </div>
-
-      {/* 중앙 원형 버튼 */}
+      {/* 중앙 원형 버튼 - 선택된 게임이 있으면 사각형으로 변환 시작 */}
       <div className="absolute top-1/2 left-1/2 z-10" style={{ transform: 'translate(-50%, -50%)' }}>
         <motion.div
           className="relative"
@@ -144,23 +105,27 @@ const Home: React.FC = () => {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          {/* 완전한 원형 버튼 */}
+          {/* 완전한 원형 버튼에서 정사각형으로 모핑 */}
           <motion.div
-            className="relative cursor-grab active:cursor-grabbing rounded-full bg-black flex items-center justify-center"
-            drag="y"
+            className="relative cursor-grab active:cursor-grabbing bg-black flex items-center justify-center"
+            drag={!selectedGame ? "y" : false}
             dragElastic={0.1}
             dragConstraints={{ top: -150, bottom: 150 }}
             onDrag={handleDrag}
             onDragEnd={handleDragEnd}
-            whileHover={{ scale: 1.05 }}
-            whileDrag={{ 
+            whileHover={!selectedGame ? { scale: 1.05 } : undefined}
+            whileDrag={!selectedGame ? { 
               scale: 1.1,
               transition: { duration: 0.1 }
-            }}
+            } : undefined}
             layoutId="main-game-element"
             animate={{
-              rotate: isDragging ? [0, 1, -1, 0.5, -0.5, 0] : 0,
+              rotate: isDragging ? [0, 1, -1, 0.5, -0.5, 0] : selectedGame ? 0 : 0,
               x: isDragging ? [0, -0.5, 0.5, -0.3, 0.3, 0] : 0,
+              borderRadius: selectedGame ? '0px' : '50%',
+              width: selectedGame ? '80px' : '64px',
+              height: selectedGame ? '80px' : '64px',
+              scale: selectedGame ? 1.2 : 1,
             }}
             transition={{
               rotate: {
@@ -172,11 +137,25 @@ const Home: React.FC = () => {
                 repeat: isDragging ? Infinity : 0,
                 duration: 0.2,
                 ease: "easeInOut"
+              },
+              borderRadius: {
+                duration: 0.8,
+                ease: [0.25, 0.1, 0.25, 1.0]
+              },
+              width: {
+                duration: 0.8,
+                ease: [0.25, 0.1, 0.25, 1.0]
+              },
+              height: {
+                duration: 0.8,
+                ease: [0.25, 0.1, 0.25, 1.0]
+              },
+              scale: {
+                duration: 0.8,
+                ease: [0.25, 0.1, 0.25, 1.0]
               }
             }}
             style={{
-              width: '64px',
-              height: '64px',
               boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
             }}
           >
@@ -187,14 +166,19 @@ const Home: React.FC = () => {
                 textAlign: 'center'
               }}
               animate={{
-                opacity: isDragging ? 0.7 : 1
+                opacity: isDragging ? 0.7 : selectedGame ? 0 : 1,
+                scale: selectedGame ? 0.8 : 1
+              }}
+              transition={{
+                opacity: { duration: selectedGame ? 0.3 : 0.2 },
+                scale: { duration: 0.3 }
               }}
             >
               SLIDE!
             </motion.span>
             
             {/* 드래그 방향 표시 화살표 */}
-            {isDragging && (
+            {isDragging && !selectedGame && (
               <motion.div
                 className="absolute inset-0 flex flex-col items-center justify-center text-white text-lg"
                 initial={{ opacity: 0 }}
@@ -260,7 +244,7 @@ const Home: React.FC = () => {
       </motion.div>
       
       {/* 선택 피드백 표시 */}
-      {isDragging && Math.abs(dragY) > 30 && (
+      {isDragging && Math.abs(dragY) > 30 && !selectedGame && (
         <motion.div
           className="fixed top-8 left-1/2 transform -translate-x-1/2 z-30
                      bg-black text-white px-6 py-2 font-mono text-sm tracking-widest uppercase"

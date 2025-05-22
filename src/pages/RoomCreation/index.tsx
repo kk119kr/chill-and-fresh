@@ -51,7 +51,7 @@ const RoomCreation: React.FC = () => {
       // 3. QR 코드 표시 후 게임 시작 버튼 표시
       setTimeout(() => {
         setShowGameButton(true);
-      }, 800);
+      }, 1200); // 모핑 애니메이션 완료 후 표시
       
     } catch (err) {
       console.error('방 생성 오류:', err);
@@ -132,55 +132,61 @@ const RoomCreation: React.FC = () => {
       </motion.button>
       
       <div className="flex flex-col items-center">
-        {/* 다이아몬드에서 QR코드로 모핑 */}
+        {/* 정사각형에서 QR코드로 자연스럽게 모핑 */}
         <motion.div
           layoutId="main-game-element"
-          className="relative"
-          initial={false}
+          className="relative flex items-center justify-center"
+          initial={{
+            width: 80,
+            height: 80,
+            borderRadius: '0px',
+            scale: 1.2,
+            backgroundColor: '#000000'
+          }}
           animate={{
-            rotate: roomId ? 0 : 45,
-            scale: roomId ? 1.2 : 1,
+            width: roomId ? 240 : 80,
+            height: roomId ? 240 : 80,
+            borderRadius: roomId ? '0px' : '0px',
+            scale: roomId ? 1 : 1.2,
+            backgroundColor: roomId ? '#ffffff' : '#000000',
+            border: roomId ? '2px solid #000000' : 'none',
           }}
           transition={{
-            duration: 0.8,
-            ease: [0.25, 0.1, 0.25, 1.0]
+            duration: 1.2,
+            ease: [0.25, 0.1, 0.25, 1.0],
+            backgroundColor: { duration: 0.8, delay: 0.4 }
           }}
         >
-          {roomId ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.4 }}
-            >
-              <QRCodeGenerator 
-                value={qrCodeValue} 
-                size={240}
-                title="QR코드를 스캔하여 참여하세요" 
-              />
-            </motion.div>
-          ) : (
-            <div className="w-16 h-16 bg-black flex items-center justify-center shadow-lg transform rotate-45">
-              <span className="text-white font-black text-xs tracking-wider uppercase transform -rotate-45">
+          {/* 로딩 상태 또는 QR 코드 */}
+          <AnimatePresence mode="wait">
+            {!roomId ? (
+              <motion.div
+                key="loading"
+                className="text-white font-black text-xs tracking-wider uppercase"
+                initial={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
                 {isConnecting ? '...' : 'SLIDE!'}
-              </span>
-            </div>
-          )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="qr-code"
+                className="w-full h-full flex items-center justify-center"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+              >
+                <QRCodeGenerator 
+                  value={qrCodeValue} 
+                  size={200}
+                  bgColor="#ffffff"
+                  fgColor="#000000" 
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
-
-        {/* 방 ID 표시 */}
-        {roomId && (
-          <motion.div
-            className="mt-6 text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.4 }}
-          >
-            <p className="text-lg font-black mb-2">방 ID</p>
-            <div className="px-6 py-3 bg-gray-100 border-2 border-black">
-              <span className="text-2xl font-black tracking-widest">{roomId}</span>
-            </div>
-          </motion.div>
-        )}
         
         {/* 참가자 목록 */}
         {roomId && (
@@ -188,10 +194,10 @@ const RoomCreation: React.FC = () => {
             className="mt-8 w-full max-w-md"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.4 }}
+            transition={{ delay: 1.0, duration: 0.4 }}
           >
-            <h3 className="text-lg font-black mb-4">참가자</h3>
-            <div className="bg-gray-100 border-2 border-black p-4 min-h-24">
+            <h3 className="text-lg font-black mb-4 text-center">참가자</h3>
+            <div className="bg-gray-50 p-4 min-h-24">
               {participants.length > 0 ? (
                 <div className="space-y-2">
                   {participants.map((participant) => (
@@ -203,7 +209,7 @@ const RoomCreation: React.FC = () => {
                       transition={{ duration: 0.3 }}
                     >
                       <span className="font-black">
-                        {participant.nickname} (참가자 {participant.number})
+                        {participant.nickname} (#{participant.number})
                       </span>
                       {participant.isHost && (
                         <span className="text-xs bg-black text-white px-2 py-1">
@@ -214,13 +220,13 @@ const RoomCreation: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">참가자를 기다리는 중...</p>
+                <p className="text-sm text-gray-500 text-center">참가자를 기다리는 중...</p>
               )}
             </div>
           </motion.div>
         )}
         
-        {/* 게임 시작 버튼 - 선택된 게임만 표시 */}
+        {/* 게임 시작 버튼 - 메인화면 SLIDE 버튼과 동일한 스타일 */}
         <AnimatePresence>
           {showGameButton && !startingGame && gameSelection && (
             <motion.div 
@@ -235,15 +241,20 @@ const RoomCreation: React.FC = () => {
             >
               <motion.button
                 onClick={handleStartGame}
-                className="w-full h-16 bg-black text-white font-black text-xl tracking-wider uppercase
-                          hover:bg-gray-900 transition-colors duration-200"
-                whileHover={{ scale: 1.02 }}
+                className="relative w-full h-16 bg-black text-white flex items-center justify-center
+                          cursor-pointer transition-all duration-300"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
                 transition={{ delay: 0.2, duration: 0.4, ease: "easeOut" }}
+                style={{
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                }}
               >
-                {gameSelection === 'chill' ? 'CHILL' : 'FRESHHH'} 시작
+                <span className="text-white font-mono font-black text-xl tracking-widest uppercase">
+                  {gameSelection === 'chill' ? 'CHILL' : 'FRESHHH'} 시작
+                </span>
               </motion.button>
             </motion.div>
           )}
