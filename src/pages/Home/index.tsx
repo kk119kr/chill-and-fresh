@@ -71,9 +71,9 @@ const Home: React.FC = () => {
       >
         {/* 위쪽 슬라이드 가이드 */}
         <motion.div
-          className="absolute top-8 left-1/2 transform -translate-x-1/2 opacity-20"
+          className="absolute top-8 left-1/2 transform -translate-x-1/2"
           animate={{ 
-            opacity: [0.1, 0.3, 0.1],
+            opacity: [0.2, 0.5, 0.2],
             y: [0, -5, 0]
           }}
           transition={{ 
@@ -89,65 +89,111 @@ const Home: React.FC = () => {
           </div>
         </motion.div>
         
-        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase">
+        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase" style={{ transform: 'rotate(0deg)' }}>
           CHILL
         </h2>
       </motion.div>
       
-      {/* 중앙 다이아몬드 버튼 - 절대 위치로 정확히 중앙에 배치 */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+      {/* 애니메이션 도트 가이드라인 */}
+      {/* 위쪽 도트 가이드 */}
+      <div className="absolute top-1/2 left-1/2 z-5 pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
+        {/* 위쪽으로 올라가는 도트들 */}
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={`up-${i}`}
+            className="absolute w-2 h-2 bg-gray-400 rounded-full"
+            style={{
+              left: '-4px',
+              top: `-${80 + (i * 20)}px`,
+            }}
+            animate={{
+              opacity: [0, 0.3, 0.7, 0.3, 0],
+              scale: [0.5, 1, 0.5],
+              y: [-10, 0, 10]
+            }}
+            transition={{
+              repeat: Infinity,
+              duration: 2,
+              delay: i * 0.2,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+        
+        {/* 아래쪽으로 내려가는 도트들 */}
+        {[...Array(5)].map((_, i) => (
+          <motion.div
+            key={`down-${i}`}
+            className="absolute w-2 h-2 bg-gray-400 rounded-full"
+            style={{
+              left: '-4px',
+              top: `${80 + (i * 20)}px`,
+            }}
+            animate={{
+              opacity: [0, 0.3, 0.7, 0.3, 0],
+              scale: [0.5, 1, 0.5],
+              y: [10, 0, -10]
+            }}
+            transition={{
+              repeat: Infinity,
+              duration: 2,
+              delay: i * 0.2 + 1,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </div>
+
+      {/* 중앙 원형 버튼 */}
+      <div className="absolute top-1/2 left-1/2 z-10" style={{ transform: 'translate(-50%, -50%)' }}>
         <motion.div
           className="relative"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
-          {/* 슬라이드 경로 가이드 - 세로 라인 */}
+          {/* 완전한 원형 버튼 */}
           <motion.div
-            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30"
-            style={{ top: '-140px' }}
-            animate={{ 
-              opacity: [0.2, 0.4, 0.2],
-              scaleY: [0.8, 1.2, 0.8]
-            }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 3,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30"
-            style={{ bottom: '-140px' }}
-            animate={{ 
-              opacity: [0.2, 0.4, 0.2],
-              scaleY: [0.8, 1.2, 0.8]
-            }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 3,
-              ease: "easeInOut",
-              delay: 1.5
-            }}
-          />
-          
-          <motion.div
-            className="w-20 h-20 bg-black border-2 border-black cursor-grab active:cursor-grabbing
-                       flex items-center justify-center relative overflow-hidden shadow-lg"
-            style={{ transform: 'rotate(45deg)' }}
+            className="relative cursor-grab active:cursor-grabbing rounded-full bg-black flex items-center justify-center"
             drag="y"
-            dragElastic={0.2}
-            dragConstraints={{ top: -100, bottom: 100 }}
+            dragElastic={0.1}
+            dragConstraints={{ top: -150, bottom: 150 }}
             onDrag={handleDrag}
             onDragEnd={handleDragEnd}
             whileHover={{ scale: 1.05 }}
-            whileDrag={{ scale: 1.1 }}
+            whileDrag={{ 
+              scale: 1.1,
+              transition: { duration: 0.1 }
+            }}
             layoutId="main-game-element"
+            animate={{
+              rotate: isDragging ? [0, 1, -1, 0.5, -0.5, 0] : 0,
+              x: isDragging ? [0, -0.5, 0.5, -0.3, 0.3, 0] : 0,
+            }}
+            transition={{
+              rotate: {
+                repeat: isDragging ? Infinity : 0,
+                duration: 0.15,
+                ease: "easeInOut"
+              },
+              x: {
+                repeat: isDragging ? Infinity : 0,
+                duration: 0.2,
+                ease: "easeInOut"
+              }
+            }}
+            style={{
+              width: '64px',
+              height: '64px',
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+            }}
           >
             {/* SLIDE 텍스트 */}
             <motion.span 
-              className="text-white font-mono font-black text-sm tracking-widest uppercase"
-              style={{ transform: 'rotate(-45deg)' }}
+              className="text-white font-mono font-black text-xs tracking-widest uppercase"
+              style={{
+                textAlign: 'center'
+              }}
               animate={{
                 opacity: isDragging ? 0.7 : 1
               }}
@@ -158,25 +204,22 @@ const Home: React.FC = () => {
             {/* 드래그 방향 표시 화살표 */}
             {isDragging && (
               <motion.div
-                className="absolute inset-0 flex flex-col items-center justify-center text-white"
-                style={{ transform: 'rotate(-45deg)' }}
+                className="absolute inset-0 flex flex-col items-center justify-center text-white text-lg"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
                 {dragY < -30 && (
                   <motion.div
-                    initial={{ y: 10 }}
+                    initial={{ y: 5 }}
                     animate={{ y: 0 }}
-                    className="text-3xl"
                   >
                     ↑
                   </motion.div>
                 )}
                 {dragY > 30 && (
                   <motion.div
-                    initial={{ y: -10 }}
+                    initial={{ y: -5 }}
                     animate={{ y: 0 }}
-                    className="text-3xl"
                   >
                     ↓
                   </motion.div>
@@ -200,9 +243,9 @@ const Home: React.FC = () => {
       >
         {/* 아래쪽 슬라이드 가이드 */}
         <motion.div
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 opacity-20"
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
           animate={{ 
-            opacity: [0.1, 0.3, 0.1],
+            opacity: [0.2, 0.5, 0.2],
             y: [0, 5, 0]
           }}
           transition={{ 
@@ -219,21 +262,9 @@ const Home: React.FC = () => {
           </div>
         </motion.div>
         
-        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase">
+        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase" style={{ transform: 'rotate(0deg)' }}>
           FRESHHH
         </h2>
-      </motion.div>
-      
-      {/* 안내 텍스트 */}
-      <motion.div
-        className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6, duration: 0.4 }}
-      >
-        <p className="text-xs font-mono text-gray-500 tracking-widest uppercase text-center">
-          DRAG OR TAP TO SELECT
-        </p>
       </motion.div>
       
       {/* 선택 피드백 표시 */}
