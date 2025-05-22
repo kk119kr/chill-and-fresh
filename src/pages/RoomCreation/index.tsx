@@ -132,10 +132,10 @@ const RoomCreation: React.FC = () => {
       </motion.button>
       
       <div className="flex flex-col items-center">
-        {/* 정사각형에서 QR코드로 자연스럽게 모핑 */}
+        {/* 정사각형에서 QR코드로, 그리고 원형 버튼으로 모핑 */}
         <motion.div
           layoutId="main-game-element"
-          className="relative flex items-center justify-center"
+          className="relative flex items-center justify-center overflow-hidden"
           initial={{
             width: 80,
             height: 80,
@@ -144,9 +144,9 @@ const RoomCreation: React.FC = () => {
             backgroundColor: '#000000'
           }}
           animate={{
-            width: roomId ? 240 : 80,
-            height: roomId ? 240 : 80,
-            borderRadius: roomId ? '0px' : '0px',
+            width: roomId ? (startingGame ? 320 : 240) : 80,
+            height: roomId ? (startingGame ? 320 : 240) : 80,
+            borderRadius: startingGame ? '50%' : '0px', // 게임 시작할 때 원형으로
             scale: roomId ? 1 : 1.2,
             backgroundColor: roomId ? '#ffffff' : '#000000',
             border: roomId ? '2px solid #000000' : 'none',
@@ -154,10 +154,11 @@ const RoomCreation: React.FC = () => {
           transition={{
             duration: 1.2,
             ease: [0.25, 0.1, 0.25, 1.0],
-            backgroundColor: { duration: 0.8, delay: 0.4 }
+            backgroundColor: { duration: 0.8, delay: 0.4 },
+            borderRadius: { duration: 0.8, delay: startingGame ? 0 : 0 }
           }}
         >
-          {/* 로딩 상태 또는 QR 코드 */}
+          {/* 로딩 상태, QR 코드, 또는 게임 시작 상태 */}
           <AnimatePresence mode="wait">
             {!roomId ? (
               <motion.div
@@ -169,12 +170,23 @@ const RoomCreation: React.FC = () => {
               >
                 {isConnecting ? '...' : 'SLIDE!'}
               </motion.div>
+            ) : startingGame ? (
+              <motion.div
+                key="game-starting"
+                className="text-black font-mono font-black text-xl tracking-widest uppercase"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+              >
+                {gameSelection === 'chill' ? 'CHILL' : 'FRESHHH'}
+              </motion.div>
             ) : (
               <motion.div
                 key="qr-code"
                 className="w-full h-full flex items-center justify-center"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
                 transition={{ delay: 0.6, duration: 0.6 }}
               >
                 <QRCodeGenerator 
@@ -189,7 +201,7 @@ const RoomCreation: React.FC = () => {
         </motion.div>
         
         {/* 참가자 목록 */}
-        {roomId && (
+        {roomId && !startingGame && (
           <motion.div 
             className="mt-8 w-full max-w-md"
             initial={{ opacity: 0, y: 20 }}
@@ -226,7 +238,7 @@ const RoomCreation: React.FC = () => {
           </motion.div>
         )}
         
-        {/* 게임 시작 버튼 - 메인화면 SLIDE 버튼과 동일한 스타일 */}
+        {/* 게임 시작 버튼 */}
         <AnimatePresence>
           {showGameButton && !startingGame && gameSelection && (
             <motion.div 
