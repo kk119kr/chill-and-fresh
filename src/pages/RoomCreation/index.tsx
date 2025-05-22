@@ -134,6 +134,7 @@ const RoomCreation: React.FC = () => {
       <div className="flex flex-col items-center">
         {/* 정사각형에서 QR코드로, 그리고 원형 버튼으로 모핑 */}
         <motion.div
+        layout
           layoutId="main-game-element"
           className="relative flex items-center justify-center overflow-hidden"
           initial={{
@@ -151,12 +152,12 @@ const RoomCreation: React.FC = () => {
             backgroundColor: roomId ? '#ffffff' : '#000000',
             border: roomId ? '2px solid #000000' : 'none',
           }}
-          transition={{
-            duration: 1.2,
-            ease: [0.25, 0.1, 0.25, 1.0],
-            backgroundColor: { duration: 0.8, delay: 0.4 },
-            borderRadius: { duration: 0.8, delay: startingGame ? 0 : 0 }
-          }}
+  transition={{
+    layout:         { duration: 0.5, ease: "easeInOut" },  /* ② 모핑 속도 & easing */
+    default:        { duration: 1.2, ease: [0.25,0.1,0.25,1.0] },
+    backgroundColor:{ duration: 0.8, delay: 0.4 },
+    borderRadius:   { duration: 0.8 }
+  }}
         >
           {/* 로딩 상태, QR 코드, 또는 게임 시작 상태 */}
           <AnimatePresence mode="wait">

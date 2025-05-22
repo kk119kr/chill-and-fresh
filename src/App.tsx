@@ -9,6 +9,7 @@ import { useGameStore } from './store/gameStore';
 import NetworkStatus from './components/common/NetworkStatus';
 import React from 'react';
 
+
 interface PageTransitionProps {
   children: React.ReactNode;
 }

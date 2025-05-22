@@ -52,6 +52,10 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 초기화
   useEffect(() => {
     initializeScores();
+  if (isHost && participants.length === 1) {
+    setIsReady(true);
+    setReadyPlayers(new Set([currentUserId]));  // ← participantNumber 대신 currentUserId 사용
+  }
   }, [participants]);
 
   const initializeScores = () => {
@@ -252,11 +256,13 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 버튼 텍스트
   const getButtonText = () => {
     if (gamePhase === 'waiting') {
-      if (isHost) {
-        return readyPlayers.size === participants.length ? 'START!' : 'START!';
-      } else {
-        return isReady ? 'READY!' : 'READY!';
-      }
+    if (isHost) {
+      // 참가자가 혼자일 땐 바로 시작 가능
+      if (participants.length === 1) return true;
+      return readyPlayers.size === participants.length;
+    } else {
+      return !isReady;
+    }
     } else if (gamePhase === 'playing') {
       return 'FRESHHH';
     } else if (gamePhase === 'roundEnd') {
