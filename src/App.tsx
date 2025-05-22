@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import Home from './pages/Home';
@@ -14,7 +13,7 @@ interface PageTransitionProps {
   children: React.ReactNode;
 }
 
-// 페이지 전환 애니메이션 컴포넌트
+// 바우하우스 스타일 페이지 전환 애니메이션
 const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
   return (
     <motion.div
@@ -22,28 +21,12 @@ const PageTransition: React.FC<PageTransitionProps> = ({ children }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{
-        type: "tween",
-        ease: [0.25, 0.1, 0.25, 1.0],
-        duration: 0.6
+        duration: 0.3,
+        ease: [0.25, 0.1, 0.25, 1.0]
       }}
       className="w-full h-full relative"
     >
       {children}
-
-      {/* 페이지 전환용 SVG 필터 정의 */}
-      <svg className="absolute inset-0 w-0 h-0 z-[-1]">
-        <defs>
-          <filter id="ink-transition">
-            <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="15" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-          <filter id="ink-splash">
-            <feTurbulence type="turbulence" baseFrequency="0.05" numOctaves="2" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="20" xChannelSelector="R" yChannelSelector="G" />
-            <feGaussianBlur stdDeviation="2" />
-          </filter>
-        </defs>
-      </svg>
     </motion.div>
   );
 };
@@ -117,26 +100,75 @@ function App() {
       {/* 네트워크 상태 표시 */}
       <NetworkStatus />
       
-      {/* 배경 종이 텍스처 - 아주 미세한 노이즈 */}
-      <div className="fixed inset-0 w-full h-full pointer-events-none z-[-1] opacity-5 bg-paper-texture"></div>
-      
-      {/* 모든 페이지에 적용되는 잉크 효과 SVG 필터 정의 */}
-      <svg className="fixed inset-0 w-0 h-0" aria-hidden="true">
-        <defs>
-          <filter id="global-ink-filter">
-            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" seed="5" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-          <filter id="global-ink-glow">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow" />
-            <feComposite in="SourceGraphic" in2="glow" operator="over" />
-          </filter>
-        </defs>
-      </svg>
+      {/* 바우하우스 기하학적 배경 요소들 */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {/* 기본 그리드 패턴 */}
+        <motion.div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, #000 1px, transparent 1px),
+              linear-gradient(to bottom, #000 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }}
+          animate={{
+            opacity: [0.01, 0.03, 0.01]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 8,
+            ease: "easeInOut"
+          }}
+        />
+        
+        {/* 떠다니는 기하학적 요소들 */}
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-8 h-8 border border-black opacity-5"
+          animate={{
+            x: [0, 50, 0],
+            y: [0, -30, 0],
+            rotate: [0, 90, 180, 270, 360]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 20,
+            ease: "linear"
+          }}
+        />
+        
+        <motion.div
+          className="absolute top-3/4 right-1/3 w-6 h-6 bg-black opacity-3"
+          animate={{
+            x: [0, -40, 0],
+            y: [0, 20, 0],
+            scale: [1, 1.2, 1]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 15,
+            ease: "easeInOut"
+          }}
+        />
+        
+        <motion.div
+          className="absolute top-1/2 right-1/4 w-4 h-12 bg-black opacity-4"
+          animate={{
+            rotate: [0, 180, 360],
+            x: [0, 30, 0]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 12,
+            ease: "linear"
+          }}
+        />
+      </div>
       
       {/* 페이지 라우팅 */}
-      <AnimatedRoutes />
+      <div className="relative z-10">
+        <AnimatedRoutes />
+      </div>
     </Router>
   );
 }

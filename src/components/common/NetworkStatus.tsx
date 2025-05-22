@@ -18,7 +18,7 @@ const NetworkStatus: React.FC = () => {
         setStatus('connecting');
         setVisible(true);
       } else if (currentStatus === 'connected' && visible) {
-        // 연결 성공 시 잠시 초록색 바 표시 후 사라짐
+        // 연결 성공 시 잠시 표시 후 사라짐
         setStatus('connected');
         setTimeout(() => {
           setVisible(false);
@@ -37,27 +37,27 @@ const NetworkStatus: React.FC = () => {
   const getStatusColor = () => {
     switch (status) {
       case 'connected':
-        return 'bg-ink-black';
+        return 'bg-black';
       case 'connecting':
-        return 'bg-ink-gray-500';
+        return 'bg-gray-500';
       case 'disconnected':
       case 'error':
-        return 'bg-ink-gray-700';
+        return 'bg-gray-700';
       default:
-        return 'bg-ink-gray-500';
+        return 'bg-gray-500';
     }
   };
   
   const getMessage = () => {
     switch (status) {
       case 'connected':
-        return '연결됨';
+        return 'CONNECTED';
       case 'connecting':
-        return '연결 중...';
+        return 'CONNECTING...';
       case 'disconnected':
-        return '연결 끊김';
+        return 'DISCONNECTED';
       case 'error':
-        return '연결 오류';
+        return 'CONNECTION ERROR';
       default:
         return '';
     }
@@ -66,81 +66,85 @@ const NetworkStatus: React.FC = () => {
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div className="fixed inset-x-0 top-0 z-50 overflow-hidden">
-          {/* 유기적인 잉크 효과를 가진 연결 상태 표시 */}
-          <motion.svg
-            width="100%"
-            height="6"
-            viewBox="0 0 100 6"
-            preserveAspectRatio="none"
+        <motion.div className="fixed inset-x-0 top-0 z-50">
+          {/* 기하학적 상태 표시 바 */}
+          <motion.div
+            className={`h-1 w-full ${getStatusColor()}`}
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: "easeInOut" }}
-            style={{ filter: 'url(#ink-spread)' }}
-          >
-            <defs>
-              <filter id="ink-spread">
-                <feTurbulence type="turbulence" baseFrequency="0.01" numOctaves="3" seed="1" result="noise"/>
-                <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
-              </filter>
-            </defs>
-            <rect x="0" y="0" width="100%" height="6" className={getStatusColor()} />
-          </motion.svg>
+            exit={{ scaleX: 0 }}
+            transition={{ 
+              duration: 0.3, 
+              ease: "easeInOut",
+              transformOrigin: "left"
+            }}
+          />
           
-          {/* 메시지 박스 */}
+          {/* 상태 메시지 박스 */}
           <motion.div 
-            className="absolute top-7 left-1/2 transform -translate-x-1/2 bg-ink-white text-xs px-3 py-1.5 rounded-full shadow-md border border-ink-gray-100"
-            initial={{ y: -10, opacity: 0 }}
+            className="absolute top-2 left-1/2 transform -translate-x-1/2 
+                       bg-white border-2 border-black px-4 py-2
+                       font-mono text-xs font-medium tracking-widest uppercase"
+            initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ delay: 0.1, duration: 0.2 }}
           >
-            <motion.span 
-              className={`
-                ${status === 'connected' ? 'text-ink-black' : 
-                  status === 'connecting' ? 'text-ink-gray-600' : 
-                  'text-ink-gray-700'}
-                font-medium
-              `}
-              animate={{ 
-                opacity: [0.8, 1, 0.8]
-              }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 2
-              }}
-            >
-              {/* 상태 표시 점 */}
-              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" 
-                style={{ 
-                  backgroundColor: status === 'connected' ? 'currentColor' : 
-                    status === 'connecting' ? 'currentColor' : 
-                    'currentColor'
+            <div className="flex items-center space-x-3">
+              {/* 상태 표시 사각형 */}
+              <motion.div 
+                className={`w-3 h-3 ${getStatusColor()}`}
+                animate={{ 
+                  opacity: status === 'connecting' ? [1, 0.3, 1] : 1,
+                }}
+                transition={{ 
+                  repeat: status === 'connecting' ? Infinity : 0,
+                  duration: 1.5
                 }}
               />
-              {getMessage()}
-            </motion.span>
+              
+              <span className={`
+                ${status === 'connected' ? 'text-black' : 
+                  status === 'connecting' ? 'text-gray-600' : 
+                  'text-gray-700'}
+              `}>
+                {getMessage()}
+              </span>
+            </div>
           </motion.div>
           
-          {/* 잉크 방울 효과 - 연결 상태가 변경될 때만 표시 */}
+          {/* 기하학적 장식 요소 */}
+          <motion.div
+            className="absolute top-0 right-4 w-8 h-8 border-2 border-black bg-white"
+            initial={{ rotate: 0, scale: 0 }}
+            animate={{ 
+              rotate: 45, 
+              scale: 1,
+              opacity: [1, 0.7, 1]
+            }}
+            exit={{ scale: 0, rotate: 90 }}
+            transition={{ 
+              duration: 0.3,
+              opacity: {
+                repeat: Infinity,
+                duration: 2
+              }
+            }}
+          />
+          
+          {/* 연결 성공 시 떨어지는 기하학적 요소 */}
           {status === 'connected' && (
             <motion.div
-              className="absolute top-2 left-1/2"
-              initial={{ y: -5, opacity: 0 }}
+              className="absolute top-4 left-1/4"
+              initial={{ y: 0, opacity: 1 }}
               animate={{ 
-                y: [-5, 30],
-                opacity: [0, 0.1, 0]
+                y: 50,
+                opacity: 0,
+                rotate: [0, 90, 180]
               }}
-              transition={{ duration: 1.5 }}
+              transition={{ duration: 1.2 }}
             >
-              <motion.div
-                className="w-2 h-2 rounded-full bg-ink-black"
-                animate={{ 
-                  scale: [1, 0.8, 0.5],
-                }}
-                transition={{ duration: 1.5 }}
-                style={{ filter: 'blur(1px)' }}
-              />
+              <div className="w-2 h-2 bg-black" />
             </motion.div>
           )}
         </motion.div>
