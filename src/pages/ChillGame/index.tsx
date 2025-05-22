@@ -114,7 +114,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
     
     // 회전 스피드 & 딜레이 조정 (참가자가 많을수록 빨라짐)
     const baseDelay = 400;
-    const minDelay = 150;
     const speedFactor = Math.min(150, participants.length * 10);
     const initialDelay = baseDelay - speedFactor;
     
