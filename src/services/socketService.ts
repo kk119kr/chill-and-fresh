@@ -74,7 +74,7 @@ class SocketService {
     }
     
     // 프로덕션에서는 현재 호스트의 API 엔드포인트 사용
-    return `${protocol}://${window.location.host}/api`;
+    return `${protocol}://${window.location.host}`;
   }
   
   // 소켓 연결 초기화
