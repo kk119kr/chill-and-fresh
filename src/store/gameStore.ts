@@ -3,6 +3,7 @@ import { create } from 'zustand';
 
 export interface Participant {
   id: string;
+  nickname: string; // nickname 속성 추가
   number: number; // 1번부터 순차적으로 채번
   isHost: boolean;
 }
@@ -30,7 +31,7 @@ interface GameStore {
   
   // 액션
   createRoom: () => string;
-  joinRoom: (roomId: string) => void;
+  joinRoom: (roomId: string, nickname: string) => void;
   leaveRoom: () => void;
   addParticipant: (participant: Participant) => void;
   removeParticipant: (participantId: string) => void;
@@ -74,6 +75,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // 호스트 참가자 생성 (1번)
     const hostParticipant: Participant = {
       id: `host_${Date.now()}`,
+      nickname: '호스트', // 기본 닉네임
       number: 1,
       isHost: true,
     };
@@ -88,13 +90,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return generatedRoomId;
   },
   
-  joinRoom: (roomId) => {
+  joinRoom: (roomId: string, nickname: string) => {
     const currentParticipants = get().participants;
     const nextNumber = currentParticipants.length + 1;
     
     // 새 참가자 생성
     const newParticipant: Participant = {
       id: `participant_${Date.now()}`,
+      nickname,
       number: nextNumber,
       isHost: false,
     };

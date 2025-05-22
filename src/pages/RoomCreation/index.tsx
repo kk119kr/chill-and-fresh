@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCodeGenerator from '../../components/common/QRCodeGenerator';
-import Button from '../../components/common/Button';
 import { useGameStore } from '../../store/gameStore';
 import socketService from '../../services/socketService';
 
@@ -178,7 +177,7 @@ const RoomCreation: React.FC = () => {
                       transition={{ duration: 0.3 }}
                     >
                       <span className="font-black">
-                        참가자 {participant.number}
+                        {participant.nickname} (참가자 {participant.number})
                       </span>
                       {participant.isHost && (
                         <span className="text-xs bg-black text-white px-2 py-1">
