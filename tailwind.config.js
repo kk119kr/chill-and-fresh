@@ -1,4 +1,4 @@
-// 바우하우스 "Form Follows Function" Tailwind Configuration
+// 서브스턴스 스타일 Tailwind Configuration
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -6,87 +6,102 @@ export default {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    // 기본 색상 시스템 완전 오버라이드
+    // 기본 색상 시스템
     colors: {
-      // 바우하우스 순수 흑백 팔레트
+      // 순수 흑백 팔레트
       black: '#000000',
       white: '#FFFFFF',
       
-      // 기능적 회색 (매우 제한적 사용)
+      // 기능적 회색
       gray: {
-        500: '#6B7280', // 보조 텍스트용만
+        50: '#f9fafb',
+        200: '#e5e7eb',
+        500: '#6B7280',
       },
       
-      // 상태 표시용 (기능적 목적)
+      // 상태 표시용
       transparent: 'transparent',
       current: 'currentColor',
     },
     
-    // Monospace 폰트 시스템
+    // 서브스턴스 스타일 폰트 시스템
     fontFamily: {
-      mono: ['JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'monospace'],
+      'title': ['Bebas Neue', 'Anton', 'Arial Black', 'sans-serif'], // 메인 타이틀용
+      'display': ['Anton', 'Arial Black', 'sans-serif'], // 디스플레이용
+      'sans': ['Oswald', 'Arial', 'sans-serif'], // 기본 텍스트
+      'mono': ['Oswald', 'monospace'], // 모노스페이스 대신 Oswald 사용
     },
     
-    // 기하학적 폰트 웨이트
+    // 굵고 간결한 폰트 웨이트
     fontWeight: {
       light: '300',
       normal: '400',
-      medium: '500',
+      semibold: '600',
       bold: '700',
-      black: '800',
+      black: '900',
     },
     
-    // 그리드 기반 spacing 시스템
+    // 최소한의 spacing 시스템
     spacing: {
       0: '0px',
-      1: '4px',   // 0.25rem
-      2: '8px',   // 0.5rem  
-      3: '12px',  // 0.75rem
-      4: '16px',  // 1rem
-      6: '24px',  // 1.5rem
-      8: '32px',  // 2rem
-      12: '48px', // 3rem
-      16: '64px', // 4rem
-      20: '80px', // 5rem
-      24: '96px', // 6rem
-      32: '128px',// 8rem
-      48: '192px',// 12rem
-      64: '256px',// 16rem
+      1: '4px',
+      2: '8px',
+      3: '12px',
+      4: '16px',
+      6: '24px',
+      8: '32px',
+      12: '48px',
+      16: '64px',
+      20: '80px',
+      24: '96px',
+      32: '128px',
     },
     
-    // 기하학적 border radius
+    // 직각만 사용
     borderRadius: {
       none: '0px',
-      full: '9999px', // 완전한 원형만
+      full: '9999px',
+    },
+    
+    // 텍스트 크기 - 서브스턴스 스타일에 맞게 조정
+    fontSize: {
+      'xs': ['0.75rem', { lineHeight: '1.2' }],
+      'sm': ['0.875rem', { lineHeight: '1.2' }],
+      'base': ['1rem', { lineHeight: '1.2' }],
+      'lg': ['1.125rem', { lineHeight: '1.2' }],
+      'xl': ['1.25rem', { lineHeight: '1.1' }],
+      '2xl': ['1.5rem', { lineHeight: '1.1' }],
+      '3xl': ['1.875rem', { lineHeight: '1' }],
+      '4xl': ['2.25rem', { lineHeight: '1' }],
+      '5xl': ['3rem', { lineHeight: '0.9' }],
+      '6xl': ['3.75rem', { lineHeight: '0.8' }],
+      '7xl': ['4.5rem', { lineHeight: '0.8' }],
+      '8xl': ['6rem', { lineHeight: '0.8' }],
+    },
+    
+    // 좁은 자간 (서브스턴스 스타일)
+    letterSpacing: {
+      tighter: '-0.05em',
+      tight: '-0.025em',
+      normal: '0',
+      wide: '0.025em',
+      wider: '0.05em',
+      widest: '0.1em',
     },
     
     extend: {
-      // 바우하우스 애니메이션 시스템
+      // 서브스턴스 스타일 애니메이션
       animation: {
-        // 기하학적 변형
-        'scale-in': 'scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        'scale-out': 'scaleOut 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        'slide-up': 'slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        'slide-down': 'slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        
-        // 드래그 인터랙션
-        'drag-hint': 'dragHint 2s ease-in-out infinite',
-        'elastic': 'elastic 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        
-        // 상태 표시
-        'pulse-geometric': 'pulseGeometric 1.5s ease-in-out infinite',
-        'blink': 'blink 1s step-end infinite',
+        'fade-in': 'fadeIn 0.4s ease-out',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'slide-down': 'slideDown 0.4s ease-out',
+        'scale-in': 'scaleIn 0.3s ease-out',
       },
       
       keyframes: {
-        // 기본 변형
-        scaleIn: {
-          '0%': { transform: 'scale(0.8)', opacity: '0' },
-          '100%': { transform: 'scale(1)', opacity: '1' },
-        },
-        scaleOut: {
-          '0%': { transform: 'scale(1)', opacity: '1' },
-          '100%': { transform: 'scale(0.8)', opacity: '0' },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
         },
         slideUp: {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
@@ -96,68 +111,23 @@ export default {
           '0%': { transform: 'translateY(-20px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
-        
-        // 드래그 힌트
-        dragHint: {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '25%': { transform: 'translateY(-4px)' },
-          '75%': { transform: 'translateY(4px)' },
-        },
-        
-        // 탄성 효과
-        elastic: {
-          '0%': { transform: 'scale(1)' },
-          '20%': { transform: 'scale(1.1)' },
-          '40%': { transform: 'scale(0.95)' },
-          '60%': { transform: 'scale(1.05)' },
-          '80%': { transform: 'scale(0.98)' },
-          '100%': { transform: 'scale(1)' },
-        },
-        
-        // 기하학적 펄스
-        pulseGeometric: {
-          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
-          '50%': { transform: 'scale(1.05)', opacity: '0.8' },
-        },
-        
-        // 깜빡임
-        blink: {
-          '0%, 50%': { opacity: '1' },
-          '51%, 100%': { opacity: '0' },
+        scaleIn: {
+          '0%': { transform: 'scale(0.9)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
       
-      // 바우하우스 트랜지션
+      // 빠른 전환
       transitionTimingFunction: {
-        'bauhaus': 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-        'linear-precise': 'linear',
+        'substance': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
       },
       
-      // 그리드 시스템
-      gridTemplateColumns: {
-        'bauhaus': 'repeat(auto-fit, minmax(96px, 1fr))',
-      },
-      
-      // 기하학적 그림자 (매우 제한적)
+      // 그림자 없음 (미니멀)
       boxShadow: {
-        'geometric': '0 0 0 1px #000000',
-        'geometric-inset': 'inset 0 0 0 1px #000000',
-      },
-      
-      // 드래그 임계값
-      translate: {
-        'drag-threshold': '60px',
-        'hint-threshold': '30px',
-      },
-      
-      // 바우하우스 비율
-      aspectRatio: {
-        'square': '1 / 1',
-        'golden': '1.618 / 1',
+        'none': 'none',
       },
     },
   },
   
-  // 플러그인은 사용하지 않음 (바우하우스 순수주의)
   plugins: [],
 }
