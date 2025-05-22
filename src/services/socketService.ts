@@ -101,15 +101,12 @@ class SocketService {
         try {
           // Socket.IO 연결 옵션 개선
           this.socket = io(this.serverUrl, {
-            query: {
-              roomId,
-              isHost: isHost ? 'true' : 'false',
-            },
-            reconnectionAttempts: this.maxReconnectAttempts,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 30000, // 타임아웃 증가
-            transports: ['websocket', 'polling'], // 웹소켓 먼저 시도
+   query: { roomId, isHost: isHost ? 'true' : 'false' },
+   reconnectionAttempts: this.maxReconnectAttempts,
+   reconnectionDelay: 1000,
+   reconnectionDelayMax: 5000,
+   timeout: 30000,
+   transports: ['polling'],            // ← 오직 롱폴링만 사용
             forceNew: true, // 새 연결 강제
             autoConnect: true, // 자동 연결
             withCredentials: false, // CORS 문제 해결
