@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface ChillGameProps {
+interface FreshhhGameProps {
   participants: { id: string; nickname: string }[];
-  participantNumber: number;
+  currentUserId: string;
   isHost: boolean;
-  onGameEnd: (winnerNumber: number) => void;
+  onGameEnd: (results: any) => void;
 }
 
 interface PlayerRoundScore {
@@ -22,9 +22,9 @@ interface PlayerResult {
   scores: PlayerRoundScore;
 }
 
-const ChillGame: React.FC<ChillGameProps> = ({
+const FreshhhGame: React.FC<FreshhhGameProps> = ({
   participants,
-  participantNumber,
+  currentUserId,
   isHost,
 }) => {
   // 게임 상태
@@ -33,7 +33,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
   const [countdown, setCountdown] = useState(3);
   
   // 준비 상태
-  const [readyPlayers, setReadyPlayers] = useState<Set<number>>(new Set());
+  const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
   const [isReady, setIsReady] = useState(false);
   
   // 게임 진행 상태
@@ -68,13 +68,11 @@ const ChillGame: React.FC<ChillGameProps> = ({
     
     setIsReady(true);
     const newReadyPlayers = new Set(readyPlayers);
-    newReadyPlayers.add(participantNumber);
+    newReadyPlayers.add(currentUserId);
     setReadyPlayers(newReadyPlayers);
     
-    // 실제로는 소켓으로 전송
-    console.log(`Player ${participantNumber} is ready`);
+    console.log(`Player ${currentUserId} is ready`);
     
-    // 모든 플레이어가 준비되었는지 확인 (임시로 로컬에서 처리)
     if (newReadyPlayers.size === participants.length) {
       console.log('All players ready');
     }
@@ -111,7 +109,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
     // 4초 타이머 시작
     const timer = setInterval(() => {
       setColorProgress(prev => {
-        const newProgress = prev + (100 / (4000 / 50)); // 50ms 간격으로 업데이트
+        const newProgress = prev + (100 / (4000 / 50));
         
         if (newProgress >= 100) {
           clearInterval(timer);
@@ -141,9 +139,8 @@ const ChillGame: React.FC<ChillGameProps> = ({
       setGameTimer(null);
     }
     
-    console.log(`Player ${participantNumber} pressed at ${elapsed}ms`);
+    console.log(`Player ${currentUserId} pressed at ${elapsed}ms`);
     
-    // 임시로 라운드 종료 처리 (실제로는 모든 플레이어가 눌렀을 때)
     setTimeout(() => {
       endRound();
     }, 1000);
@@ -160,7 +157,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
 
   // 라운드 종료
   const endRound = () => {
-    // 점수 계산 (임시 로직)
     const playerCount = participants.length;
     const halfCount = Math.floor(playerCount / 2);
     
@@ -168,11 +164,9 @@ const ChillGame: React.FC<ChillGameProps> = ({
     if (isExploded) {
       score = -5;
     } else {
-      // 임시로 랜덤 순위 부여 (실제로는 서버에서 계산)
       const randomRank = Math.floor(Math.random() * playerCount) + 1;
       
       if (playerCount % 2 === 1) {
-        // 홀수인 경우
         const middle = Math.ceil(playerCount / 2);
         if (randomRank === middle) {
           score = 0;
@@ -182,7 +176,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
           score = randomRank - middle;
         }
       } else {
-        // 짝수인 경우
         if (randomRank <= halfCount) {
           score = -(halfCount - randomRank + 1);
         } else {
@@ -193,7 +186,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
     
     // 점수 업데이트
     const updatedScores = { ...allScores };
-    const currentPlayerScore = updatedScores[participants[participantNumber - 1].id];
+    const currentPlayerScore = updatedScores[currentUserId];
     
     if (currentRound === 1) currentPlayerScore.round1 = score;
     else if (currentRound === 2) currentPlayerScore.round2 = score;
@@ -204,7 +197,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
     
     setGamePhase('roundEnd');
     
-    // 다음 라운드 또는 게임 종료
     setTimeout(() => {
       if (currentRound < 3) {
         setCurrentRound(prev => prev + 1);
@@ -219,7 +211,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
 
   // 게임 종료
   const endGame = () => {
-    // 최종 결과 계산
     const results: PlayerResult[] = participants.map(p => ({
       id: p.id,
       nickname: p.nickname,
@@ -227,7 +218,6 @@ const ChillGame: React.FC<ChillGameProps> = ({
       scores: allScores[p.id]
     }));
     
-    // 랭킹 정렬
     results.sort((a, b) => b.scores.total - a.scores.total);
     results.forEach((result, index) => {
       result.rank = index + 1;
@@ -268,9 +258,9 @@ const ChillGame: React.FC<ChillGameProps> = ({
         return isReady ? 'READY!' : 'READY!';
       }
     } else if (gamePhase === 'playing') {
-      return 'CHILL';
+      return 'FRESHHH';
     } else if (gamePhase === 'roundEnd') {
-      const currentPlayerScore = allScores[participants[participantNumber - 1]?.id];
+      const currentPlayerScore = allScores[currentUserId];
       const roundScore = currentRound === 1 ? currentPlayerScore?.round1 : 
                         currentRound === 2 ? currentPlayerScore?.round2 : 
                         currentPlayerScore?.round3;
@@ -308,6 +298,19 @@ const ChillGame: React.FC<ChillGameProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white relative overflow-hidden">
+      {/* 이전 화면 버튼 */}
+      <motion.button
+        onClick={() => window.history.back()}
+        className="absolute top-4 left-4 w-3 h-3 bg-black flex items-center justify-center
+                   font-mono text-xs font-medium tracking-widest uppercase text-white"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+      >
+      </motion.button>
+
       {/* 재시작 버튼 (호스트만, 게임 종료 시에만) */}
       {isHost && gamePhase === 'gameEnd' && (
         <motion.button
@@ -387,11 +390,12 @@ const ChillGame: React.FC<ChillGameProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 메인 게임 버튼 - 크기 증가 */}
+      {/* 메인 게임 버튼 - QR 코드와 동일한 크기 (240px)로 모핑 효과 */}
       {gamePhase !== 'gameEnd' && (
-        <motion.div className="relative">
+        <motion.div className="relative w-60 h-60 flex items-center justify-center">
+
           <motion.button
-            className="w-96 h-96 flex items-center justify-center relative border-2 border-black"
+            className="w-60 h-60 flex items-center justify-center relative border-2 border-black"
             style={{
               backgroundColor: isExploded ? '#ff0000' : getButtonColor(),
               borderRadius: '50%'
@@ -411,7 +415,7 @@ const ChillGame: React.FC<ChillGameProps> = ({
             disabled={!isButtonActive()}
           >
             <span 
-              className={`font-mono font-black text-4xl tracking-widest uppercase ${
+              className={`font-mono font-black text-3xl tracking-widest uppercase ${
                 colorProgress > 50 ? 'text-white' : 'text-black'
               } ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}`}
             >
@@ -484,4 +488,4 @@ const ChillGame: React.FC<ChillGameProps> = ({
   );
 };
 
-export default ChillGame;
+export default FreshhhGame;
