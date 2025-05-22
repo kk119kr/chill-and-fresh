@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import Button from '../../components/common/Button';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedGame, setSelectedGame] = useState<'chill' | 'freshhh' | null>(null);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   
@@ -14,8 +12,6 @@ const Home: React.FC = () => {
   
   // 게임 선택 및 화면 전환
   const handleSelectGame = (gameType: 'chill' | 'freshhh') => {
-    setSelectedGame(gameType);
-    
     // 애니메이션 후 페이지 이동
     setTimeout(() => {
       navigate('/create', { 

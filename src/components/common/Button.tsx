@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface ButtonProps {
@@ -40,8 +40,8 @@ const Button: React.FC<ButtonProps> = ({
     ${fullWidth ? 'w-full' : ''}
     ${sizeClass}
     ${variant === 'primary' 
-      ? 'bg-bauhaus-black text-bauhaus-white border-bauhaus-black' 
-      : 'bg-bauhaus-white text-bauhaus-black border-bauhaus-black'
+      ? 'bg-black text-white border-black' 
+      : 'bg-white text-black border-black'
     }
     ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105 active:scale-95'}
     ${className}
