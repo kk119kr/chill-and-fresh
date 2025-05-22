@@ -270,14 +270,17 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   };
 
   // 버튼 활성화 상태
-  const isButtonActive = () => {
-    if (gamePhase === 'waiting') {
-      if (isHost) {
-        return readyPlayers.size === participants.length;
-      } else {
-        return !isReady;
-      }
-    } else if (gamePhase === 'playing') {
+const isButtonActive = () => {
+  if (gamePhase === 'waiting') {
+    // 참가자 수가 1명(호스트 혼자)이면 바로 활성화
+    if (isHost && participants.length === 1) return true;
+
+    if (isHost) {
+      return readyPlayers.size === participants.length;
+    } else {
+      return !isReady;
+    }
+  }else if (gamePhase === 'playing') {
       return !hasPressed;
     }
     return false;
@@ -339,10 +342,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
               <div
                 key={round}
                 className={`w-3 h-3 rounded-full ${
-                  round === currentRound ? 'bg-green-500' : // 현재 라운드 - 초록점
-                  round < currentRound ? 'bg-red-500' : // 완료된 라운드 - 빨간점
-                  'bg-gray-300' // 예정된 라운드 - 회색점
-                }`}
+   round === currentRound
+     ? 'bg-green-500'
+     : round < currentRound
+       ? 'bg-red-500'
+       : 'bg-gray-300'
+ }`}
               />
             ))}
           </div>
@@ -392,38 +397,40 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
 
       {/* 메인 게임 버튼 - QR 코드와 동일한 크기 (240px)로 모핑 효과 */}
       {gamePhase !== 'gameEnd' && (
-        <motion.div className="relative w-60 h-60 flex items-center justify-center">
-
-          <motion.button
-            className="w-60 h-60 flex items-center justify-center relative border-2 border-black"
-            style={{
-              backgroundColor: isExploded ? '#ff0000' : getButtonColor(),
-              borderRadius: '50%'
-            }}
-            layoutId="main-game-element"
-            whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
-            whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
-            onClick={isButtonActive() ? handleButtonClick : undefined}
-            animate={{
-              scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1,
-              backgroundColor: getButtonColor()
-            }}
-            transition={{
-              scale: { duration: isExploded ? 0.5 : 0.2 },
-              backgroundColor: { duration: 0.1 }
-            }}
-            disabled={!isButtonActive()}
-          >
-            <span 
-              className={`font-mono font-black text-3xl tracking-widest uppercase ${
-                colorProgress > 50 ? 'text-white' : 'text-black'
-              } ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}`}
-            >
-              {getButtonText()}
-            </span>
-          </motion.button>
-        </motion.div>
-      )}
+<motion.div
+  layout
+  layoutId="main-game-element"
+  initial={{ borderRadius: '0%' }}
+  animate={{ borderRadius: '50%' }}
+  transition={{ borderRadius: { duration: 0.3 } }}
+  className="relative w-[240px] h-[240px] overflow-hidden border-2 border-black flex items-center justify-center"
+  style={{ backgroundColor: isExploded ? '#f00' : getButtonColor() }}
+>
+     <motion.button
+       className="w-full h-full flex items-center justify-center"
+       whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
+       whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
+       onClick={isButtonActive() ? handleButtonClick : undefined}
+       animate={{
+         scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1
+       }}
+       transition={{
+         scale: { duration: isExploded ? 0.5 : 0.2 }
+       }}
+       disabled={!isButtonActive()}
+     >
+       <span
+         className={`
+           font-mono font-black text-3xl tracking-widest uppercase
+           ${colorProgress > 50 ? 'text-white' : 'text-black'}
+           ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}
+         `}
+       >
+         {getButtonText()}
+       </span>
+     </motion.button>
+   </motion.div>
+ )}
 
       {/* 최종 결과 화면 */}
       <AnimatePresence>
