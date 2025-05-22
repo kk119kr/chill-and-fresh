@@ -94,54 +94,46 @@ const Home: React.FC = () => {
         </h2>
       </motion.div>
       
-      {/* 애니메이션 도트 가이드라인 */}
-      {/* 위쪽 도트 가이드 */}
+      {/* 실선 드래그 가이드라인 */}
       <div className="absolute top-1/2 left-1/2 z-5 pointer-events-none" style={{ transform: 'translate(-50%, -50%)' }}>
-        {/* 위쪽으로 올라가는 도트들 */}
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={`up-${i}`}
-            className="absolute w-2 h-2 bg-gray-400 rounded-full"
-            style={{
-              left: '-4px',
-              top: `-${80 + (i * 20)}px`,
-            }}
-            animate={{
-              opacity: [0, 0.3, 0.7, 0.3, 0],
-              scale: [0.5, 1, 0.5],
-              y: [-10, 0, 10]
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 2,
-              delay: i * 0.2,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
+        {/* 위쪽 실선 가이드 */}
+        <motion.div
+          className="absolute w-px bg-gray-400"
+          style={{
+            left: '-0.5px',
+            top: '-120px',
+            height: '80px',
+          }}
+          animate={{
+            opacity: [0.3, 0.7, 0.3],
+            scaleY: [0.8, 1.2, 0.8]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 3,
+            ease: "easeInOut"
+          }}
+        />
         
-        {/* 아래쪽으로 내려가는 도트들 */}
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={`down-${i}`}
-            className="absolute w-2 h-2 bg-gray-400 rounded-full"
-            style={{
-              left: '-4px',
-              top: `${80 + (i * 20)}px`,
-            }}
-            animate={{
-              opacity: [0, 0.3, 0.7, 0.3, 0],
-              scale: [0.5, 1, 0.5],
-              y: [10, 0, -10]
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 2,
-              delay: i * 0.2 + 1,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
+        {/* 아래쪽 실선 가이드 */}
+        <motion.div
+          className="absolute w-px bg-gray-400"
+          style={{
+            left: '-0.5px',
+            top: '40px',
+            height: '80px',
+          }}
+          animate={{
+            opacity: [0.3, 0.7, 0.3],
+            scaleY: [0.8, 1.2, 0.8]
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 3,
+            ease: "easeInOut",
+            delay: 1.5
+          }}
+        />
       </div>
 
       {/* 중앙 원형 버튼 */}
