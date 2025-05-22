@@ -51,7 +51,7 @@ const Home: React.FC = () => {
 
   return (
     <motion.div 
-      className="flex flex-col min-h-screen bg-white relative overflow-hidden"
+      className="min-h-screen bg-white relative overflow-hidden flex flex-col"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -60,7 +60,7 @@ const Home: React.FC = () => {
       
       {/* 상단 절반 - CHILL */}
       <motion.div 
-        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative
+        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative min-h-[50vh]
           ${dragY < -30 || isDragging && dragY < 0 ? 'bg-black text-white' : 'bg-white text-black'}
         `}
         onClick={() => handleGameSelection('chill')}
@@ -83,28 +83,29 @@ const Home: React.FC = () => {
           }}
         >
           <div className="flex flex-col items-center space-y-1">
-            <div className="w-8 h-0.5 bg-black"></div>
-            <div className="w-6 h-0.5 bg-black"></div>
-            <div className="w-4 h-0.5 bg-black"></div>
+            <div className="w-8 h-0.5 bg-current"></div>
+            <div className="w-6 h-0.5 bg-current"></div>
+            <div className="w-4 h-0.5 bg-current"></div>
           </div>
         </motion.div>
         
-        <h2 className="text-9xl md:text-[12rem] font-black tracking-tight font-mono uppercase">
+        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase">
           CHILL
         </h2>
       </motion.div>
       
-      {/* 중앙 다이아몬드 버튼 */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+      {/* 중앙 다이아몬드 버튼 - 절대 위치로 정확히 중앙에 배치 */}
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
         <motion.div
-          className="relative pointer-events-auto"
+          className="relative"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
           {/* 슬라이드 경로 가이드 - 세로 라인 */}
           <motion.div
-            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30 -top-20"
+            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30"
+            style={{ top: '-140px' }}
             animate={{ 
               opacity: [0.2, 0.4, 0.2],
               scaleY: [0.8, 1.2, 0.8]
@@ -116,7 +117,8 @@ const Home: React.FC = () => {
             }}
           />
           <motion.div
-            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30 -bottom-20"
+            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30"
+            style={{ bottom: '-140px' }}
             animate={{ 
               opacity: [0.2, 0.4, 0.2],
               scaleY: [0.8, 1.2, 0.8]
@@ -131,7 +133,8 @@ const Home: React.FC = () => {
           
           <motion.div
             className="w-20 h-20 bg-black border-2 border-black cursor-grab active:cursor-grabbing
-                       flex items-center justify-center relative overflow-hidden transform rotate-45 shadow-lg"
+                       flex items-center justify-center relative overflow-hidden shadow-lg"
+            style={{ transform: 'rotate(45deg)' }}
             drag="y"
             dragElastic={0.2}
             dragConstraints={{ top: -100, bottom: 100 }}
@@ -143,7 +146,8 @@ const Home: React.FC = () => {
           >
             {/* SLIDE 텍스트 */}
             <motion.span 
-              className="text-white font-mono font-black text-sm tracking-widest uppercase transform -rotate-45"
+              className="text-white font-mono font-black text-sm tracking-widest uppercase"
+              style={{ transform: 'rotate(-45deg)' }}
               animate={{
                 opacity: isDragging ? 0.7 : 1
               }}
@@ -154,7 +158,8 @@ const Home: React.FC = () => {
             {/* 드래그 방향 표시 화살표 */}
             {isDragging && (
               <motion.div
-                className="absolute inset-0 flex flex-col items-center justify-center text-white transform -rotate-45"
+                className="absolute inset-0 flex flex-col items-center justify-center text-white"
+                style={{ transform: 'rotate(-45deg)' }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
@@ -184,7 +189,7 @@ const Home: React.FC = () => {
       
       {/* 하단 절반 - FRESHHH */}
       <motion.div 
-        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative
+        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative min-h-[50vh]
           ${dragY > 30 || isDragging && dragY > 0 ? 'bg-black text-white' : 'bg-white text-black'}
         `}
         onClick={() => handleGameSelection('freshhh')}
@@ -208,13 +213,13 @@ const Home: React.FC = () => {
           }}
         >
           <div className="flex flex-col items-center space-y-1">
-            <div className="w-4 h-0.5 bg-black"></div>
-            <div className="w-6 h-0.5 bg-black"></div>
-            <div className="w-8 h-0.5 bg-black"></div>
+            <div className="w-4 h-0.5 bg-current"></div>
+            <div className="w-6 h-0.5 bg-current"></div>
+            <div className="w-8 h-0.5 bg-current"></div>
           </div>
         </motion.div>
         
-        <h2 className="text-9xl md:text-[12rem] font-black tracking-tight font-mono uppercase">
+        <h2 className="text-[8rem] md:text-[12rem] font-black tracking-tight font-title uppercase">
           FRESHHH
         </h2>
       </motion.div>
@@ -246,7 +251,8 @@ const Home: React.FC = () => {
       
       {/* 기하학적 장식 요소들 */}
       <motion.div
-        className="absolute top-16 right-16 w-4 h-4 bg-black transform rotate-45 opacity-20"
+        className="absolute top-16 right-16 w-4 h-4 bg-black opacity-20"
+        style={{ transform: 'rotate(45deg)' }}
         animate={{
           rotate: [45, 135, 225, 315, 405]
         }}
@@ -271,7 +277,8 @@ const Home: React.FC = () => {
       />
       
       <motion.div
-        className="absolute top-1/3 left-8 w-6 h-6 border-2 border-black transform rotate-45 opacity-20"
+        className="absolute top-1/3 left-8 w-6 h-6 border-2 border-black opacity-20"
+        style={{ transform: 'rotate(45deg)' }}
         animate={{
           rotate: [45, 90, 135, 180, 225, 270, 315, 360, 405],
           scale: [1, 1.1, 1]
