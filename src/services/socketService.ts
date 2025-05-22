@@ -106,7 +106,8 @@ class SocketService {
    reconnectionDelay: 1000,
    reconnectionDelayMax: 5000,
    timeout: 30000,
-   transports: ['polling'],            // ← 오직 롱폴링만 사용
+   transports: ['polling'],   
+   path: '/socket.io/',          // ← Netlify redirect 에 맞춰서         // ← 오직 롱폴링만 사용
             forceNew: true, // 새 연결 강제
             autoConnect: true, // 자동 연결
             withCredentials: false, // CORS 문제 해결
