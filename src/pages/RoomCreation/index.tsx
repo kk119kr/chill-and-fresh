@@ -17,7 +17,7 @@ const RoomCreation: React.FC = () => {
   
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gameSelection, setGameSelection] = useState<'chill' | 'freshhh' | null>(selectedGame || null);
+  const [gameSelection] = useState<'chill' | 'freshhh' | null>(selectedGame || null);
   const [startingGame, setStartingGame] = useState(false);
   const [showGameButton, setShowGameButton] = useState(false);
   
@@ -63,22 +63,26 @@ const RoomCreation: React.FC = () => {
   };
   
   // 게임 시작 함수
-  const handleStartGame = (gameType: 'chill' | 'freshhh') => {
+  const handleStartGame = () => {
+    if (!gameSelection) {
+      setError('게임이 선택되지 않았습니다.');
+      return;
+    }
+    
     if (participants.length < 1) {
       setError('최소 1명의 참가자가 필요합니다.');
       return;
     }
     
-    setGameSelection(gameType);
     setStartingGame(true);
     
     try {
       // 소켓을 통해 게임 시작 메시지 전송
-      socketService.startGame(gameType);
+      socketService.startGame(gameSelection);
       
       // 게임 화면으로 이동
       setTimeout(() => {
-        navigate(`/${gameType}`, {
+        navigate(`/${gameSelection}`, {
           state: {
             fromRoom: true
           }
@@ -89,6 +93,13 @@ const RoomCreation: React.FC = () => {
       setError('게임 시작 중 오류가 발생했습니다. 다시 시도해주세요.');
       setStartingGame(false);
     }
+  };
+
+  // 이전 화면으로 돌아가기
+  const handleGoBack = () => {
+    // 소켓 연결 해제
+    socketService.disconnect();
+    navigate('/');
   };
 
   return (
@@ -104,6 +115,21 @@ const RoomCreation: React.FC = () => {
           {error}
         </motion.div>
       )}
+      
+      {/* 이전 화면 버튼 */}
+      <motion.button
+        onClick={handleGoBack}
+        className="absolute top-4 left-4 w-8 h-8 bg-white border border-black 
+                   flex items-center justify-center font-mono text-xs font-bold
+                   hover:bg-black hover:text-white transition-colors duration-200"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+      >
+        ←
+      </motion.button>
       
       <div className="flex flex-col items-center">
         {/* 다이아몬드에서 QR코드로 모핑 */}
@@ -133,8 +159,8 @@ const RoomCreation: React.FC = () => {
               />
             </motion.div>
           ) : (
-            <div className="w-24 h-24 bg-black flex items-center justify-center shadow-lg">
-              <span className="text-white font-black text-sm tracking-wider uppercase transform -rotate-45">
+            <div className="w-16 h-16 bg-black flex items-center justify-center shadow-lg transform rotate-45">
+              <span className="text-white font-black text-xs tracking-wider uppercase transform -rotate-45">
                 {isConnecting ? '...' : 'SLIDE!'}
               </span>
             </div>
@@ -194,11 +220,11 @@ const RoomCreation: React.FC = () => {
           </motion.div>
         )}
         
-        {/* 게임 시작 버튼 */}
+        {/* 게임 시작 버튼 - 선택된 게임만 표시 */}
         <AnimatePresence>
-          {showGameButton && !startingGame && (
+          {showGameButton && !startingGame && gameSelection && (
             <motion.div 
-              className="mt-8 flex flex-col space-y-4 w-full max-w-md"
+              className="mt-8 w-full max-w-md"
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -208,8 +234,8 @@ const RoomCreation: React.FC = () => {
               }}
             >
               <motion.button
-                onClick={() => handleStartGame('chill')}
-                className="h-16 bg-black text-white font-black text-xl tracking-wider uppercase
+                onClick={handleStartGame}
+                className="w-full h-16 bg-black text-white font-black text-xl tracking-wider uppercase
                           hover:bg-gray-900 transition-colors duration-200"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -217,20 +243,7 @@ const RoomCreation: React.FC = () => {
                 animate={{ scaleX: 1 }}
                 transition={{ delay: 0.2, duration: 0.4, ease: "easeOut" }}
               >
-                CHILL 시작
-              </motion.button>
-
-              <motion.button
-                onClick={() => handleStartGame('freshhh')}
-                className="h-16 bg-white text-black border-2 border-black font-black text-xl tracking-wider uppercase
-                          hover:bg-gray-50 transition-colors duration-200"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ delay: 0.4, duration: 0.4, ease: "easeOut" }}
-              >
-                RANDOM 시작
+                {gameSelection === 'chill' ? 'CHILL' : 'FRESHHH'} 시작
               </motion.button>
             </motion.div>
           )}
@@ -254,7 +267,7 @@ const RoomCreation: React.FC = () => {
               >
                 {gameSelection === 'chill' 
                   ? 'CHILL 게임을 시작합니다...' 
-                  : 'RANDOM 게임을 시작합니다...'} 
+                  : 'FRESHHH 게임을 시작합니다...'} 
               </motion.p>
             </motion.div>
           )}

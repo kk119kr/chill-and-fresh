@@ -45,53 +45,93 @@ const Home: React.FC = () => {
     }
   };
 
+  const handleGameSelection = (gameType: 'chill' | 'freshhh') => {
+    handleSelectGame(gameType);
+  };
+
   return (
     <motion.div 
-      className="flex flex-col items-center justify-center min-h-screen bg-white px-8 relative overflow-hidden"
+      className="flex flex-col min-h-screen bg-white relative overflow-hidden"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
       
-      {/* 메인 타이틀 */}
-      <motion.h1 
-        className="text-6xl font-black mb-16 tracking-tight font-mono uppercase"
-        initial={{ opacity: 0, y: -30 }}
+      {/* 상단 절반 - CHILL */}
+      <motion.div 
+        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative
+          ${dragY < -30 || isDragging && dragY < 0 ? 'bg-black text-white' : 'bg-white text-black'}
+        `}
+        onClick={() => handleGameSelection('chill')}
+        whileHover={{ backgroundColor: dragY < -30 ? undefined : '#f9fafb' }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
-        GAME
-      </motion.h1>
-      
-      {/* 3단 구조 레이아웃 */}
-      <div className="flex flex-col items-center space-y-8 w-full max-w-sm">
-        
-        {/* 상단: CHILL 카드 */}
+        {/* 위쪽 슬라이드 가이드 */}
         <motion.div
-          className={`w-full h-20 border-2 border-black bg-white flex items-center justify-center
-                     font-mono font-bold text-xl tracking-widest uppercase cursor-pointer
-                     ${dragY < -30 ? 'bg-black text-white' : 'hover:bg-gray-50'}`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleSelectGame('chill')}
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          className="absolute top-8 left-1/2 transform -translate-x-1/2 opacity-20"
+          animate={{ 
+            opacity: [0.1, 0.3, 0.1],
+            y: [0, -5, 0]
+          }}
+          transition={{ 
+            repeat: Infinity, 
+            duration: 2,
+            ease: "easeInOut"
+          }}
         >
-          CHILL
+          <div className="flex flex-col items-center space-y-1">
+            <div className="w-8 h-0.5 bg-black"></div>
+            <div className="w-6 h-0.5 bg-black"></div>
+            <div className="w-4 h-0.5 bg-black"></div>
+          </div>
         </motion.div>
         
-        {/* 중앙: 드래그 가능한 START 버튼 */}
+        <h2 className="text-9xl md:text-[12rem] font-black tracking-tight font-mono uppercase">
+          CHILL
+        </h2>
+      </motion.div>
+      
+      {/* 중앙 다이아몬드 버튼 */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
         <motion.div
-          className="relative"
+          className="relative pointer-events-auto"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
         >
+          {/* 슬라이드 경로 가이드 - 세로 라인 */}
           <motion.div
-            className="w-24 h-24 bg-black border-2 border-black cursor-grab active:cursor-grabbing
-                       flex items-center justify-center relative overflow-hidden"
+            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30 -top-20"
+            animate={{ 
+              opacity: [0.2, 0.4, 0.2],
+              scaleY: [0.8, 1.2, 0.8]
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 3,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute left-1/2 transform -translate-x-1/2 w-0.5 h-32 bg-gray-300 opacity-30 -bottom-20"
+            animate={{ 
+              opacity: [0.2, 0.4, 0.2],
+              scaleY: [0.8, 1.2, 0.8]
+            }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 3,
+              ease: "easeInOut",
+              delay: 1.5
+            }}
+          />
+          
+          <motion.div
+            className="w-20 h-20 bg-black border-2 border-black cursor-grab active:cursor-grabbing
+                       flex items-center justify-center relative overflow-hidden transform rotate-45 shadow-lg"
             drag="y"
             dragElastic={0.2}
             dragConstraints={{ top: -100, bottom: 100 }}
@@ -101,20 +141,20 @@ const Home: React.FC = () => {
             whileDrag={{ scale: 1.1 }}
             layoutId="main-game-element"
           >
-            {/* START 텍스트 */}
+            {/* SLIDE 텍스트 */}
             <motion.span 
-              className="text-white font-mono font-black text-xs tracking-widest uppercase"
+              className="text-white font-mono font-black text-sm tracking-widest uppercase transform -rotate-45"
               animate={{
                 opacity: isDragging ? 0.7 : 1
               }}
             >
-              START
+              SLIDE!
             </motion.span>
             
             {/* 드래그 방향 표시 화살표 */}
             {isDragging && (
               <motion.div
-                className="absolute inset-0 flex flex-col items-center justify-center text-white"
+                className="absolute inset-0 flex flex-col items-center justify-center text-white transform -rotate-45"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
@@ -122,7 +162,7 @@ const Home: React.FC = () => {
                   <motion.div
                     initial={{ y: 10 }}
                     animate={{ y: 0 }}
-                    className="text-2xl"
+                    className="text-3xl"
                   >
                     ↑
                   </motion.div>
@@ -131,7 +171,7 @@ const Home: React.FC = () => {
                   <motion.div
                     initial={{ y: -10 }}
                     animate={{ y: 0 }}
-                    className="text-2xl"
+                    className="text-3xl"
                   >
                     ↓
                   </motion.div>
@@ -140,51 +180,75 @@ const Home: React.FC = () => {
             )}
           </motion.div>
         </motion.div>
-        
-        {/* 하단: RANDOM 카드 */}
-        <motion.div
-          className={`w-full h-20 border-2 border-black bg-white flex items-center justify-center
-                     font-mono font-bold text-xl tracking-widest uppercase cursor-pointer
-                     ${dragY > 30 ? 'bg-black text-white' : 'hover:bg-gray-50'}`}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => handleSelectGame('freshhh')}
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          RANDOM
-        </motion.div>
       </div>
       
+      {/* 하단 절반 - FRESHHH */}
+      <motion.div 
+        className={`flex-1 flex items-center justify-center cursor-pointer transition-all duration-300 relative
+          ${dragY > 30 || isDragging && dragY > 0 ? 'bg-black text-white' : 'bg-white text-black'}
+        `}
+        onClick={() => handleGameSelection('freshhh')}
+        whileHover={{ backgroundColor: dragY > 30 ? undefined : '#f9fafb' }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        {/* 아래쪽 슬라이드 가이드 */}
+        <motion.div
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 opacity-20"
+          animate={{ 
+            opacity: [0.1, 0.3, 0.1],
+            y: [0, 5, 0]
+          }}
+          transition={{ 
+            repeat: Infinity, 
+            duration: 2,
+            ease: "easeInOut",
+            delay: 1
+          }}
+        >
+          <div className="flex flex-col items-center space-y-1">
+            <div className="w-4 h-0.5 bg-black"></div>
+            <div className="w-6 h-0.5 bg-black"></div>
+            <div className="w-8 h-0.5 bg-black"></div>
+          </div>
+        </motion.div>
+        
+        <h2 className="text-9xl md:text-[12rem] font-black tracking-tight font-mono uppercase">
+          FRESHHH
+        </h2>
+      </motion.div>
+      
       {/* 안내 텍스트 */}
-      <motion.p
-        className="text-xs font-mono text-gray-500 mt-12 tracking-widest uppercase text-center"
+      <motion.div
+        className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.6, duration: 0.4 }}
       >
-        DRAG TO SELECT
-      </motion.p>
+        <p className="text-xs font-mono text-gray-500 tracking-widest uppercase text-center">
+          DRAG OR TAP TO SELECT
+        </p>
+      </motion.div>
       
       {/* 선택 피드백 표시 */}
       {isDragging && Math.abs(dragY) > 30 && (
         <motion.div
-          className="fixed top-8 left-1/2 transform -translate-x-1/2 
+          className="fixed top-8 left-1/2 transform -translate-x-1/2 z-30
                      bg-black text-white px-6 py-2 font-mono text-sm tracking-widest uppercase"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
         >
-          {dragY < -30 ? 'CHILL SELECTED' : 'RANDOM SELECTED'}
+          {dragY < -30 ? 'CHILL SELECTED' : 'FRESHHH SELECTED'}
         </motion.div>
       )}
       
       {/* 기하학적 장식 요소들 */}
       <motion.div
-        className="absolute top-16 right-16 w-4 h-4 bg-black"
+        className="absolute top-16 right-16 w-4 h-4 bg-black transform rotate-45 opacity-20"
         animate={{
-          rotate: [0, 90, 180, 270, 360]
+          rotate: [45, 135, 225, 315, 405]
         }}
         transition={{
           repeat: Infinity,
@@ -194,7 +258,7 @@ const Home: React.FC = () => {
       />
       
       <motion.div
-        className="absolute bottom-20 left-12 w-8 h-2 bg-black"
+        className="absolute bottom-32 left-12 w-8 h-2 bg-black opacity-20"
         animate={{
           x: [0, 20, 0],
           scaleX: [1, 1.5, 1]
@@ -207,9 +271,9 @@ const Home: React.FC = () => {
       />
       
       <motion.div
-        className="absolute top-1/3 left-8 w-6 h-6 border-2 border-black"
+        className="absolute top-1/3 left-8 w-6 h-6 border-2 border-black transform rotate-45 opacity-20"
         animate={{
-          rotate: [0, 45, 90, 135, 180, 225, 270, 315, 360],
+          rotate: [45, 90, 135, 180, 225, 270, 315, 360, 405],
           scale: [1, 1.1, 1]
         }}
         transition={{
