@@ -103,7 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
     
     set({
-      roomId,
+      roomId, // 이미 roomId를 사용하고 있으므로 currentRoomId 변수가 불필요
       isHost: false,
       participantNumber: nextNumber,
       participants: [...currentParticipants, newParticipant],
