@@ -1,4 +1,4 @@
-// src/services/socketService.ts (프로덕션 대응)
+// src/services/socketService.ts (Railway 통합)
 import { io, Socket } from 'socket.io-client';
 import { useGameStore, Participant, GameType } from '../store/gameStore';
 
@@ -47,12 +47,12 @@ class SocketService {
   
   // 소켓 서버 URL 가져오기
   private getServerUrl(): string {
-    // 환경 변수 또는 배포 환경에 따른 서버 URL 설정
+    // Railway에서는 같은 서버에서 프론트엔드와 소켓을 모두 제공
     if (import.meta.env.PROD) {
-      // 프로덕션 환경: 배포된 서버 URL 사용
-      return import.meta.env.VITE_SOCKET_SERVER_URL || 'https://your-socket-server.herokuapp.com';
+      // 프로덕션: 현재 도메인 사용
+      return window.location.origin;
     } else {
-      // 개발 환경: 로컬 서버 사용
+      // 개발: 로컬 서버
       return 'http://localhost:3001';
     }
   }

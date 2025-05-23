@@ -1,3 +1,4 @@
+// src/pages/FreshhhGame/index.tsx (수정된 버전)
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -52,11 +53,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 초기화
   useEffect(() => {
     initializeScores();
-  if (isHost && participants.length === 1) {
-    setIsReady(true);
-    setReadyPlayers(new Set([currentUserId]));  // ← participantNumber 대신 currentUserId 사용
-  }
-  }, [participants]);
+    // 혼자서도 게임할 수 있도록 설정
+    if (isHost && participants.length === 1) {
+      setIsReady(true);
+      setReadyPlayers(new Set([currentUserId]));
+    }
+  }, [participants, currentUserId, isHost]);
 
   const initializeScores = () => {
     const scores: Record<string, PlayerRoundScore> = {};
@@ -84,7 +86,11 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
 
   // Start 버튼 처리 (호스트만)
   const handleStart = () => {
-    if (!isHost || readyPlayers.size !== participants.length) return;
+    if (!isHost) return;
+    
+    // 혼자일 때 또는 모든 플레이어가 준비됐을 때
+    const canStart = participants.length === 1 || readyPlayers.size === participants.length;
+    if (!canStart) return;
     
     setGamePhase('countdown');
     setCountdown(3);
@@ -162,7 +168,6 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 라운드 종료
   const endRound = () => {
     const playerCount = participants.length;
-    const halfCount = Math.floor(playerCount / 2);
     
     let score = 0;
     if (isExploded) {
@@ -180,6 +185,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
           score = randomRank - middle;
         }
       } else {
+        const halfCount = Math.floor(playerCount / 2);
         if (randomRank <= halfCount) {
           score = -(halfCount - randomRank + 1);
         } else {
@@ -253,16 +259,16 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     return 'white';
   };
 
-  // 버튼 텍스트
+  // 버튼 텍스트 - 수정된 부분
   const getButtonText = () => {
     if (gamePhase === 'waiting') {
-    if (isHost) {
-      // 참가자가 혼자일 땐 바로 시작 가능
-      if (participants.length === 1) return true;
-      return readyPlayers.size === participants.length;
-    } else {
-      return !isReady;
-    }
+      if (isHost) {
+        // 혼자일 때는 바로 시작 가능
+        if (participants.length === 1) return 'START!';
+        return readyPlayers.size === participants.length ? 'START!' : 'START!';
+      } else {
+        return isReady ? 'READY!' : 'READY!';
+      }
     } else if (gamePhase === 'playing') {
       return 'FRESHHH';
     } else if (gamePhase === 'roundEnd') {
@@ -275,18 +281,17 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     return '';
   };
 
-  // 버튼 활성화 상태
-const isButtonActive = () => {
-  if (gamePhase === 'waiting') {
-    // 참가자 수가 1명(호스트 혼자)이면 바로 활성화
-    if (isHost && participants.length === 1) return true;
-
-    if (isHost) {
-      return readyPlayers.size === participants.length;
-    } else {
-      return !isReady;
-    }
-  }else if (gamePhase === 'playing') {
+  // 버튼 활성화 상태 - 수정된 부분
+  const isButtonActive = () => {
+    if (gamePhase === 'waiting') {
+      if (isHost) {
+        // 혼자일 때는 바로 활성화
+        if (participants.length === 1) return true;
+        return readyPlayers.size === participants.length;
+      } else {
+        return !isReady;
+      }
+    } else if (gamePhase === 'playing') {
       return !hasPressed;
     }
     return false;
@@ -295,9 +300,12 @@ const isButtonActive = () => {
   // 버튼 클릭 핸들러
   const handleButtonClick = () => {
     if (gamePhase === 'waiting') {
-      if (isHost && readyPlayers.size === participants.length) {
-        handleStart();
-      } else if (!isHost && !isReady) {
+      if (isHost) {
+        const canStart = participants.length === 1 || readyPlayers.size === participants.length;
+        if (canStart) {
+          handleStart();
+        }
+      } else if (!isReady) {
         handleReady();
       }
     } else if (gamePhase === 'playing') {
@@ -310,24 +318,25 @@ const isButtonActive = () => {
       {/* 이전 화면 버튼 */}
       <motion.button
         onClick={() => window.history.back()}
-        className="absolute top-4 left-4 w-3 h-3 bg-black flex items-center justify-center
-                   font-mono text-xs font-medium tracking-widest uppercase text-white"
+        className="absolute top-4 left-4 w-8 h-8 bg-black text-white flex items-center justify-center
+                   font-mono text-xs font-medium tracking-widest uppercase"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
       >
+        ←
       </motion.button>
 
       {/* 재시작 버튼 (호스트만, 게임 종료 시에만) */}
       {isHost && gamePhase === 'gameEnd' && (
         <motion.button
           onClick={handleRestart}
-          className="absolute top-4 left-4 px-4 py-2 bg-black text-white font-mono text-xs font-bold tracking-widest uppercase"
+          className="absolute top-4 right-4 px-4 py-2 bg-black text-white font-mono text-xs font-bold tracking-widest uppercase"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2, duration: 0.3 }}
         >
@@ -348,12 +357,12 @@ const isButtonActive = () => {
               <div
                 key={round}
                 className={`w-3 h-3 rounded-full ${
-   round === currentRound
-     ? 'bg-green-500'
-     : round < currentRound
-       ? 'bg-red-500'
-       : 'bg-gray-300'
- }`}
+                  round === currentRound
+                    ? 'bg-green-500'
+                    : round < currentRound
+                      ? 'bg-red-500'
+                      : 'bg-gray-300'
+                }`}
               />
             ))}
           </div>
@@ -403,40 +412,40 @@ const isButtonActive = () => {
 
       {/* 메인 게임 버튼 - QR 코드와 동일한 크기 (240px)로 모핑 효과 */}
       {gamePhase !== 'gameEnd' && (
-<motion.div
-  layout
-  layoutId="main-game-element"
-  initial={{ borderRadius: '0%' }}
-  animate={{ borderRadius: '50%' }}
-  transition={{ borderRadius: { duration: 0.3 } }}
-  className="relative w-[240px] h-[240px] overflow-hidden border-2 border-black flex items-center justify-center"
-  style={{ backgroundColor: isExploded ? '#f00' : getButtonColor() }}
->
-     <motion.button
-       className="w-full h-full flex items-center justify-center"
-       whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
-       whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
-       onClick={isButtonActive() ? handleButtonClick : undefined}
-       animate={{
-         scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1
-       }}
-       transition={{
-         scale: { duration: isExploded ? 0.5 : 0.2 }
-       }}
-       disabled={!isButtonActive()}
-     >
-       <span
-         className={`
-           font-mono font-black text-3xl tracking-widest uppercase
-           ${colorProgress > 50 ? 'text-white' : 'text-black'}
-           ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}
-         `}
-       >
-         {getButtonText()}
-       </span>
-     </motion.button>
-   </motion.div>
- )}
+        <motion.div
+          layout
+          layoutId="main-game-element"
+          initial={{ borderRadius: '0%' }}
+          animate={{ borderRadius: '50%' }}
+          transition={{ borderRadius: { duration: 0.3 } }}
+          className="relative w-[240px] h-[240px] overflow-hidden border-2 border-black flex items-center justify-center"
+          style={{ backgroundColor: isExploded ? '#f00' : getButtonColor() }}
+        >
+          <motion.button
+            className="w-full h-full flex items-center justify-center"
+            whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
+            whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
+            onClick={isButtonActive() ? handleButtonClick : undefined}
+            animate={{
+              scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1
+            }}
+            transition={{
+              scale: { duration: isExploded ? 0.5 : 0.2 }
+            }}
+            disabled={!isButtonActive()}
+          >
+            <span
+              className={`
+                font-mono font-black text-3xl tracking-widest uppercase
+                ${colorProgress > 50 ? 'text-white' : 'text-black'}
+                ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}
+              `}
+            >
+              {getButtonText()}
+            </span>
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* 최종 결과 화면 */}
       <AnimatePresence>

@@ -7,9 +7,17 @@
     "dev": "vite",     
     "build": "tsc -b && vite build",     
     "lint": "eslint .",     
-    "preview": "vite preview",     
-    "start:server": "node server/index.js",     
-    "dev:host": "concurrently \"npm run dev\" \"npm run start:server\""   
+    "preview": "vite preview",
+    "start:server": "node server/index.js",
+    "dev:host": "concurrently \"npm run dev\" \"npm run start:server\"",
+    
+    // Railway 배포용 스크립트 추가
+    "build:railway": "npm run build && npm run copy-build",
+    "copy-build": "cp -r dist/* server/public/",
+    "start": "npm run build:railway && node server/index.js",
+    
+    // Railway 프로덕션 시작 명령어
+    "railway:start": "node server/index.js"
   },   
   "dependencies": {     
     "@types/react-router-dom": "^5.3.3",     
@@ -21,7 +29,12 @@
     "react-dom": "^19.1.0",     
     "react-router-dom": "^7.6.0",     
     "socket.io-client": "^4.8.1",     
-    "zustand": "^5.0.4"   
+    "zustand": "^5.0.4",
+    
+    // 서버 의존성도 dependencies로 이동 (Railway 배포용)
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "cors": "^2.8.5"
   },   
   "devDependencies": {     
     "@eslint/js": "^9.25.0",     
@@ -32,15 +45,12 @@
     "@types/react-dom": "^19.1.2",     
     "@vitejs/plugin-react": "^4.4.1",     
     "autoprefixer": "^10.4.21",     
-    "concurrently": "^8.2.2",     
-    "cors": "^2.8.5",     
+    "concurrently": "^8.2.2",
     "eslint": "^9.25.0",     
     "eslint-plugin-react-hooks": "^5.2.0",     
-    "eslint-plugin-react-refresh": "^0.4.19",     
-    "express": "^4.21.2",     
+    "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",     
-    "postcss": "^8.5.3",     
-    "socket.io": "^4.8.1",     
+    "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7",     
     "ts-node": "^10.9.2",     
     "typescript": "~5.8.3",     

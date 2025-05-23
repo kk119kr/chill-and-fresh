@@ -1,34 +1,59 @@
-// server/index.js (ES 모듈 형식 및 CORS 개선)
+// server/index.js (Railway 통합 - 프론트엔드 + 소켓 서버)
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { networkInterfaces } from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES 모듈에서 __dirname 대체
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 서버 설정
 const app = express();
 const server = createServer(app);
 
-// CORS 설정 개선
+// CORS 설정
 const io = new Server(server, {
   cors: {
-    origin: "*", // 모든 출처 허용 (개발 환경)
+    origin: process.env.NODE_ENV === 'production' 
+      ? [`https://${process.env.RAILWAY_STATIC_URL}`, 'https://*.railway.app']
+      : ["http://localhost:5173", "http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
-    allowedHeaders: ["my-custom-header"],
   },
-  transports: ['websocket', 'polling'], // 웹소켓 우선, 폴링 폴백
-  pingTimeout: 30000, // 핑 타임아웃 증가
-  pingInterval: 10000, // 핑 간격 설정
-  connectTimeout: 30000, // 연결 타임아웃 증가
-  allowEIO3: true, // Socket.IO v3 클라이언트 지원
+  transports: ['websocket', 'polling'],
+  pingTimeout: 30000,
+  pingInterval: 10000,
+  connectTimeout: 30000,
+  allowEIO3: true,
 });
 
 app.use(cors({
-  origin: "*", // 모든 출처 허용 (개발 환경)
+  origin: process.env.NODE_ENV === 'production' 
+    ? [`https://${process.env.RAILWAY_STATIC_URL}`, 'https://*.railway.app']
+    : ["http://localhost:5173", "http://localhost:3000"],
   credentials: true
 }));
 app.use(express.json());
+
+// ===== 정적 파일 서빙 (프론트엔드) =====
+// 프로덕션 환경에서 빌드된 React 앱을 서빙
+if (process.env.NODE_ENV === 'production') {
+  // 빌드된 정적 파일들을 서빙
+  app.use(express.static(path.join(__dirname, 'public')));
+  
+  // SPA 라우팅을 위한 fallback
+  app.get('*', (req, res, next) => {
+    // API 경로나 소켓 경로가 아닌 경우에만 index.html 반환
+    if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  });
+}
 
 // 방 목록 (메모리 저장)
 const rooms = {};
@@ -44,22 +69,25 @@ const logWithTimestamp = (message, data = null) => {
 const getLocalIpAddress = () => {
   const interfaces = networkInterfaces();
   
-  // WiFi 또는 이더넷 네트워크 인터페이스 찾기
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
-      // IPv4 주소이고 내부 주소가 아닌 경우
       if (iface.family === 'IPv4' && !iface.internal) {
         return iface.address;
       }
     }
   }
   
-  return '127.0.0.1'; // 기본 로컬호스트 주소 반환
+  return '127.0.0.1';
 };
 
-// 서버 API 엔드포인트
-app.get('/', (req, res) => {
-  res.send('Chill & Fresh 게임 서버 활성화');
+// ===== API 엔드포인트 =====
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'online',
+    environment: process.env.NODE_ENV || 'development',
+    rooms: Object.keys(rooms).length,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 로컬 IP 주소 가져오기 API
@@ -69,27 +97,26 @@ app.get('/api/local-ip', (req, res) => {
 });
 
 // 상태 확인용 엔드포인트
-app.get('/status', (req, res) => {
+app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
     rooms: Object.keys(rooms).length,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// 상태 체크와 ping 엔드포인트 추가
-app.get('/ping', (req, res) => {
+// Ping 엔드포인트
+app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// 소켓 연결 이벤트 처리
+// ===== 소켓 연결 이벤트 처리 =====
 io.on('connection', (socket) => {
   logWithTimestamp('새로운 연결:', socket.id);
   
-  // 쿼리 파라미터 가져오기
   const { roomId, isHost } = socket.handshake.query;
   
-  // 연결 정보 검증
   if (!roomId) {
     logWithTimestamp('roomId가 제공되지 않음');
     socket.emit('error', { message: 'roomId가 필요합니다.' });
@@ -97,7 +124,6 @@ io.on('connection', (socket) => {
     return;
   }
   
-  // 소켓을 방에 조인
   socket.join(roomId);
   logWithTimestamp(`소켓 ${socket.id}이(가) 방 ${roomId}에 조인함`);
   
@@ -119,12 +145,10 @@ io.on('connection', (socket) => {
       };
       logWithTimestamp(`방 생성됨: ${roomId}, 호스트: ${socket.id}`);
     } else {
-      // 방이 이미 존재하는 경우 호스트 정보 업데이트
       rooms[roomId].hostId = socket.id;
       logWithTimestamp(`기존 방의 호스트 업데이트: ${roomId}, 새 호스트: ${socket.id}`);
     }
     
-    // 방 생성 확인 메시지
     socket.emit('message', {
       type: 'ROOM_CREATED',
       sender: 'server',
@@ -135,7 +159,6 @@ io.on('connection', (socket) => {
       }
     });
   } else {
-    // 참가자가 존재하지 않는 방에 접속 시도하는 경우
     if (!rooms[roomId]) {
       socket.emit('error', { message: '존재하지 않는 방입니다.' });
       socket.disconnect();
@@ -176,7 +199,6 @@ io.on('connection', (socket) => {
           break;
           
         default:
-          // 다른 메시지는 그대로 전달
           forwardMessageToRoom(room.id, message);
       }
     } catch (error) {
@@ -189,19 +211,15 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     logWithTimestamp(`연결 해제: ${socket.id}, 이유: ${reason}`);
     
-    // 방 검색
     const room = rooms[roomId];
     if (!room) return;
     
-    // 참가자 찾기
     const index = room.participants.findIndex(p => p.socketId === socket.id);
     if (index !== -1) {
       const participant = room.participants[index];
       
-      // 참가자 제거
       room.participants.splice(index, 1);
       
-      // 방에 알림
       const disconnectMessage = {
         type: 'DISCONNECT_NOTICE',
         sender: 'server',
@@ -214,14 +232,11 @@ io.on('connection', (socket) => {
       
       forwardMessageToRoom(room.id, disconnectMessage);
       
-      // 호스트가 나간 경우 처리
       if (socket.id === room.hostId && room.participants.length > 0) {
-        // 가장 오래된 참가자를 새 호스트로 설정
         const newHost = room.participants[0];
         newHost.isHost = true;
         room.hostId = newHost.socketId;
         
-        // 호스트 변경 알림
         const hostChangeMessage = {
           type: 'HOST_CHANGE',
           sender: 'server',
@@ -236,7 +251,6 @@ io.on('connection', (socket) => {
         logWithTimestamp(`호스트 변경: ${room.id}, 새 호스트: ${newHost.socketId}`);
       }
       
-      // 방에 참가자가 없으면 방 삭제
       if (room.participants.length === 0) {
         delete rooms[room.id];
         logWithTimestamp(`방 삭제됨: ${room.id}`);
@@ -244,31 +258,13 @@ io.on('connection', (socket) => {
     }
   });
   
-  // 에러 이벤트 처리
   socket.on('error', (error) => {
     logWithTimestamp('소켓 오류:', error);
     socket.emit('error', { message: `소켓 오류: ${error.message || 'Unknown error'}` });
   });
-  
-  // 재연결 처리 개선
-  socket.on('reconnect', (attemptNumber) => {
-    logWithTimestamp(`재연결 성공: ${socket.id}, 시도 횟수: ${attemptNumber}`);
-  });
-  
-  socket.on('reconnect_attempt', (attemptNumber) => {
-    logWithTimestamp(`재연결 시도: ${attemptNumber}`);
-  });
-  
-  socket.on('reconnect_error', (error) => {
-    logWithTimestamp(`재연결 오류: ${error}`);
-  });
-  
-  socket.on('reconnect_failed', () => {
-    logWithTimestamp(`재연결 실패 (최대 시도 횟수 초과)`);
-  });
 });
 
-// 참가 요청 처리
+// ===== 소켓 이벤트 핸들러 함수들 =====
 function handleJoinRequest(socket, room, message) {
   const { nickname } = message.payload;
   
@@ -277,16 +273,13 @@ function handleJoinRequest(socket, room, message) {
     return;
   }
   
-  // 중복 참가 방지
   if (room.participants.some(p => p.socketId === socket.id)) {
     socket.emit('error', { message: '이미 참가 중입니다.' });
     return;
   }
   
-  // 참가자 ID 생성
   const participantId = message.sender || `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
-  // 참가자 추가
   const newParticipant = {
     id: participantId,
     socketId: socket.id,
@@ -297,7 +290,6 @@ function handleJoinRequest(socket, room, message) {
   room.participants.push(newParticipant);
   logWithTimestamp(`참가자 추가: ${nickname} (${socket.id})`);
   
-  // 참가 확인 메시지 전송
   const confirmMessage = {
     type: 'JOIN_CONFIRMED',
     sender: 'server',
@@ -310,7 +302,6 @@ function handleJoinRequest(socket, room, message) {
   
   socket.emit('message', confirmMessage);
   
-  // 모든 참가자에게 업데이트된 참가자 목록 전송
   const updateMessage = {
     type: 'PLAYER_LIST_UPDATE',
     sender: 'server',
@@ -327,7 +318,6 @@ function handleJoinRequest(socket, room, message) {
   forwardMessageToRoom(room.id, updateMessage);
 }
 
-// 게임 시작 처리
 function handleGameStart(socket, room, message) {
   const { gameType } = message.payload;
   
@@ -336,14 +326,12 @@ function handleGameStart(socket, room, message) {
     return;
   }
   
-  // 호스트 확인
   if (socket.id !== room.hostId) {
     logWithTimestamp('호스트가 아닌 사용자가 게임 시작 요청:', socket.id);
     socket.emit('error', { message: '호스트만 게임을 시작할 수 있습니다.' });
     return;
   }
   
-  // 게임 상태 업데이트
   room.gameState = {
     ...room.gameState,
     status: 'running',
@@ -352,12 +340,10 @@ function handleGameStart(socket, room, message) {
     scores: {},
   };
   
-  // 점수 초기화
   room.participants.forEach(p => {
     room.gameState.scores[p.id] = 0;
   });
   
-  // 게임 시작 메시지 전송
   const gameStartMessage = {
     type: 'GAME_START',
     sender: 'server',
@@ -372,9 +358,7 @@ function handleGameStart(socket, room, message) {
   logWithTimestamp(`게임 시작: ${gameType}, 방: ${room.id}`);
 }
 
-// 탭 이벤트 처리
 function handleTapEvent(socket, room, message) {
-  // 참가자 검증
   const participant = room.participants.find(p => p.socketId === socket.id);
   
   if (!participant) {
@@ -382,16 +366,13 @@ function handleTapEvent(socket, room, message) {
     return;
   }
   
-  // 탭 이벤트를 모든 참가자에게 전달
   message.payload.participantId = participant.id;
   message.payload.nickname = participant.nickname;
   forwardMessageToRoom(room.id, message);
   logWithTimestamp(`탭 이벤트: ${socket.id}, 참가자: ${participant.nickname}`);
 }
 
-// 방에 메시지 전달
 function forwardMessageToRoom(roomId, message) {
-  // 메시지 검증
   if (!message || !message.type) {
     logWithTimestamp('유효하지 않은 메시지');
     return;
@@ -400,18 +381,25 @@ function forwardMessageToRoom(roomId, message) {
   io.to(roomId).emit('message', message);
 }
 
-// 서버 시작
+// ===== 서버 시작 =====
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+
+server.listen(PORT, HOST, () => {
   const ipAddress = getLocalIpAddress();
-  logWithTimestamp(`서버 시작: http://${ipAddress}:${PORT}`);
+  logWithTimestamp(`서버 시작: ${HOST}:${PORT}`);
+  logWithTimestamp(`환경: ${process.env.NODE_ENV || 'development'}`);
   
-  // 사용 가능한 엔드포인트 출력
+  if (process.env.NODE_ENV === 'production') {
+    logWithTimestamp(`Railway URL: https://${process.env.RAILWAY_STATIC_URL || 'your-app'}.railway.app`);
+  } else {
+    logWithTimestamp(`로컬 IP: http://${ipAddress}:${PORT}`);
+  }
+  
   logWithTimestamp(`API 엔드포인트:`);
-  logWithTimestamp(`- 기본 정보: http://${ipAddress}:${PORT}/`);
-  logWithTimestamp(`- 상태 확인: http://${ipAddress}:${PORT}/status`);
-  logWithTimestamp(`- 핑: http://${ipAddress}:${PORT}/ping`);
-  logWithTimestamp(`- 로컬 IP: http://${ipAddress}:${PORT}/api/local-ip`);
+  logWithTimestamp(`- 상태 확인: /api/health`);
+  logWithTimestamp(`- 핑: /api/ping`);
+  logWithTimestamp(`- 로컬 IP: /api/local-ip`);
 });
 
 // 예기치 않은 에러 처리
@@ -419,5 +407,8 @@ process.on('uncaughtException', (err) => {
   logWithTimestamp('예기치 않은 오류:', err);
 });
 
-// 확인용 콘솔 메시지
-logWithTimestamp('소켓 서버 초기화 완료');
+process.on('unhandledRejection', (reason, promise) => {
+  logWithTimestamp('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+logWithTimestamp('통합 서버 초기화 완료 (프론트엔드 + 소켓)');
