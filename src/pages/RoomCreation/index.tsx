@@ -30,11 +30,11 @@ const RoomCreation: React.FC = () => {
   }, []);
   
   // QR 코드에 포함될 URL 생성
-const qrCodeValue = roomId 
-  ? `${window.location.origin}/join?roomId=${roomId}&isHost=false`
-  : '';
+  const qrCodeValue = roomId 
+    ? `${window.location.origin}/join?roomId=${roomId}&isHost=false`
+    : '';
   
-  // 방 생성 함수
+  // 방 생성 함수 - 수정된 버전 (닉네임 포함)
   const handleCreateRoom = async () => {
     if (isConnecting) return;
     
@@ -45,8 +45,8 @@ const qrCodeValue = roomId
       // 1. 스토어에 방 생성 (자동으로 1번 참가자가 됨)
       const newRoomId = createRoom();
       
-      // 2. 소켓 연결 초기화 (호스트 모드)
-      await socketService.initSocket(newRoomId, true);
+      // 2. 소켓 연결 초기화 (호스트 모드, 기본 닉네임 포함)
+      await socketService.initSocket(newRoomId, true, '호스트');
       
       // 3. QR 코드 표시 후 게임 시작 버튼 표시
       setTimeout(() => {
@@ -134,7 +134,7 @@ const qrCodeValue = roomId
       <div className="flex flex-col items-center">
         {/* 정사각형에서 QR코드로, 그리고 원형 버튼으로 모핑 */}
         <motion.div
-        layout
+          layout
           layoutId="main-game-element"
           className="relative flex items-center justify-center overflow-hidden"
           initial={{
@@ -147,17 +147,17 @@ const qrCodeValue = roomId
           animate={{
             width: roomId ? (startingGame ? 320 : 240) : 80,
             height: roomId ? (startingGame ? 320 : 240) : 80,
-            borderRadius: startingGame ? '50%' : '0px', // 게임 시작할 때 원형으로
+            borderRadius: startingGame ? '50%' : '0px',
             scale: roomId ? 1 : 1.2,
             backgroundColor: roomId ? '#ffffff' : '#000000',
             border: roomId ? '2px solid #000000' : 'none',
           }}
-  transition={{
-    layout:         { duration: 0.5, ease: "easeInOut" },  /* ② 모핑 속도 & easing */
-    default:        { duration: 1.2, ease: [0.25,0.1,0.25,1.0] },
-    backgroundColor:{ duration: 0.8, delay: 0.4 },
-    borderRadius:   { duration: 0.8 }
-  }}
+          transition={{
+            layout: { duration: 0.5, ease: "easeInOut" },
+            default: { duration: 1.2, ease: [0.25,0.1,0.25,1.0] },
+            backgroundColor: { duration: 0.8, delay: 0.4 },
+            borderRadius: { duration: 0.8 }
+          }}
         >
           {/* 로딩 상태, QR 코드, 또는 게임 시작 상태 */}
           <AnimatePresence mode="wait">
@@ -201,7 +201,7 @@ const qrCodeValue = roomId
           </AnimatePresence>
         </motion.div>
         
-        {/* 참가자 목록 */}
+        {/* 참가자 목록 - 개선된 버전 */}
         {roomId && !startingGame && (
           <motion.div 
             className="mt-8 w-full max-w-md"
@@ -209,23 +209,26 @@ const qrCodeValue = roomId
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0, duration: 0.4 }}
           >
-            <h3 className="text-lg font-black mb-4 text-center">참가자</h3>
-            <div className="bg-gray-50 p-4 min-h-24">
+            <h3 className="text-lg font-black mb-4 text-center">
+              참가자 ({participants.length}명)
+            </h3>
+            <div className="bg-gray-50 p-4 min-h-24 border-2 border-black">
               {participants.length > 0 ? (
                 <div className="space-y-2">
                   {participants.map((participant) => (
                     <motion.div 
                       key={participant.id} 
-                      className="flex items-center justify-between"
+                      className="flex items-center justify-between py-2 px-3 bg-white border border-gray-200"
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <span className="font-black">
-                        {participant.nickname} (#{participant.number})
+                      <span className="font-mono font-semibold">
+                        #{participant.number} {participant.nickname}
                       </span>
                       {participant.isHost && (
-                        <span className="text-xs bg-black text-white px-2 py-1">
+                        <span className="text-xs bg-black text-white px-2 py-1 font-mono">
                           방장
                         </span>
                       )}
@@ -233,7 +236,9 @@ const qrCodeValue = roomId
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 text-center">참가자를 기다리는 중...</p>
+                <p className="text-sm text-gray-500 text-center py-4">
+                  참가자를 기다리는 중...
+                </p>
               )}
             </div>
           </motion.div>

@@ -1,4 +1,4 @@
-// src/services/socketService.ts (수정된 버전)
+// src/services/socketService.ts (수정된 버전 - 연결 안정성 개선)
 import { io, Socket } from 'socket.io-client';
 import { useGameStore, Participant, GameType } from '../store/gameStore';
 
@@ -31,10 +31,11 @@ class SocketService {
   private isHost: boolean = false;
   private nickname: string = '';
   private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+  private maxReconnectAttempts: number = 3;
   private reconnectTimeout: number | null = null;
   private connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error' = 'disconnected';
   private connectionErrorMessage: string = '';
+  private isInitializing: boolean = false;
   
   // 연결 상태 확인
   public getConnectionStatus(): string {
@@ -75,20 +76,31 @@ class SocketService {
     }
   }
   
-  // 소켓 연결 초기화 - 수정된 버전
+  // 소켓 연결 초기화 - 수정된 버전 (안정성 개선)
   public async initSocket(roomId: string, isHost: boolean, nickname?: string): Promise<boolean> {
+    // 이미 초기화 중인 경우 대기
+    if (this.isInitializing) {
+      console.log('이미 초기화 중입니다. 대기 중...');
+      return false;
+    }
+
+    this.isInitializing = true;
     this.roomId = roomId;
     this.isHost = isHost;
-    this.nickname = nickname || '';
+    this.nickname = nickname || (isHost ? '호스트' : '참가자');
     this.connectionStatus = 'connecting';
     this.connectionErrorMessage = '';
     
     console.log(`소켓 연결 시도: roomId=${roomId}, isHost=${isHost}, nickname=${this.nickname}`);
     
-    // 기존 소켓이 있으면 연결 해제
+    // 기존 소켓이 있으면 완전히 정리
     if (this.socket) {
+      console.log('기존 소켓 연결 정리 중...');
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
+      // 정리 완료까지 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
     try {
@@ -97,29 +109,40 @@ class SocketService {
       
       return new Promise((resolve, reject) => {
         try {
-          // Socket.IO 연결 옵션 - 수정된 버전
+          // Socket.IO 연결 옵션 - 안정성 개선
           this.socket = io(this.serverUrl, {
             query: { 
               roomId, 
               isHost: isHost ? 'true' : 'false',
               nickname: this.nickname
             },
-            reconnectionAttempts: this.maxReconnectAttempts,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 20000,
+            reconnection: false, // 자동 재연결 비활성화 (수동 제어)
+            timeout: 15000, // 타임아웃 단축
             transports: ['websocket', 'polling'],
             forceNew: true,
             autoConnect: true,
             withCredentials: false,
+            upgrade: true,
+            rememberUpgrade: true
           });
+          
+          // 연결 성공 타이머
+          const connectTimeout = setTimeout(() => {
+            console.error('연결 타임아웃');
+            this.connectionStatus = 'error';
+            this.connectionErrorMessage = '연결 타임아웃';
+            this.isInitializing = false;
+            reject(new Error('연결 타임아웃'));
+          }, 15000);
           
           // 연결 이벤트 핸들러
           this.socket.on('connect', () => {
+            clearTimeout(connectTimeout);
             console.log('소켓 연결 성공:', this.socket?.id);
             this.connectionStatus = 'connected';
             this.reconnectAttempts = 0;
             this.connectionErrorMessage = '';
+            this.isInitializing = false;
             
             this.registerEventHandlers();
             resolve(true);
@@ -127,32 +150,39 @@ class SocketService {
           
           // 연결 오류 이벤트 핸들러
           this.socket.on('connect_error', (error) => {
+            clearTimeout(connectTimeout);
             this.connectionStatus = 'error';
             this.reconnectAttempts++;
             this.connectionErrorMessage = `연결 오류: ${error.message}`;
+            this.isInitializing = false;
             
             console.error('소켓 연결 오류:', error.message, `(시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            
-            if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-              reject(new Error(`서버 연결 실패: ${error.message}`));
-            }
+            reject(new Error(`서버 연결 실패: ${error.message}`));
           });
           
           this.socket.on('disconnect', (reason) => {
             console.log('소켓 연결 해제:', reason);
             this.connectionStatus = 'disconnected';
             this.connectionErrorMessage = `연결 해제: ${reason}`;
+            this.isInitializing = false;
+            
+            // 예상치 못한 연결 해제인 경우에만 재연결 시도
+            if (reason === 'io server disconnect' || reason === 'transport close') {
+              this.attemptReconnect();
+            }
           });
           
           this.socket.on('error', (error) => {
             console.error('소켓 오류:', error);
             this.connectionErrorMessage = `소켓 오류: ${error.toString()}`;
+            this.isInitializing = false;
           });
           
         } catch (error) {
           console.error('소켓 초기화 오류:', error);
           this.connectionStatus = 'error';
           this.connectionErrorMessage = `초기화 오류: ${error instanceof Error ? error.message : String(error)}`;
+          this.isInitializing = false;
           reject(error);
         }
       });
@@ -160,26 +190,51 @@ class SocketService {
       console.error('서버 URL 설정 오류:', error);
       this.connectionStatus = 'error';
       this.connectionErrorMessage = `서버 URL 오류: ${error instanceof Error ? error.message : String(error)}`;
+      this.isInitializing = false;
       throw error;
     }
   }
-  
-  // 소켓 연결 종료
-  public disconnect(): void {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-      this.connectionStatus = 'disconnected';
-      this.connectionErrorMessage = '';
+
+  // 재연결 시도
+  private attemptReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('최대 재연결 시도 횟수 초과');
+      return;
     }
+
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 5000);
+    console.log(`${delay}ms 후 재연결 시도 (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+    
+    this.reconnectTimeout = window.setTimeout(() => {
+      this.initSocket(this.roomId, this.isHost, this.nickname)
+        .catch(error => {
+          console.error('재연결 실패:', error);
+        });
+    }, delay);
+  }
+  
+  // 소켓 연결 종료 - 개선된 버전
+  public disconnect(): void {
+    console.log('소켓 연결 해제 요청');
     
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
+    
+    this.connectionStatus = 'disconnected';
+    this.connectionErrorMessage = '';
+    this.isInitializing = false;
+    this.reconnectAttempts = 0;
   }
   
-  // 메시지 전송
+  // 메시지 전송 - 안전성 개선
   public sendMessage(message: Omit<Message, 'sender' | 'timestamp'>): void {
     if (!this.socket || this.socket.disconnected) {
       console.error('소켓이 연결되지 않았습니다. 메시지 전송 실패:', message.type);
@@ -203,13 +258,16 @@ class SocketService {
     // 닉네임 저장
     this.nickname = nickname;
     
-    this.sendMessage({
-      type: 'JOIN_REQUEST',
-      payload: {
-        roomId: this.roomId,
-        nickname,
-      },
-    });
+    // 짧은 딜레이 후 전송 (연결 안정화)
+    setTimeout(() => {
+      this.sendMessage({
+        type: 'JOIN_REQUEST',
+        payload: {
+          roomId: this.roomId,
+          nickname,
+        },
+      });
+    }, 300);
   }
   
   // 게임 시작 요청
@@ -294,10 +352,10 @@ class SocketService {
           case 'PLAYER_LIST_UPDATE':
             if (message.payload && Array.isArray(message.payload.participants)) {
               console.log('참가자 목록 업데이트:', message.payload.participants);
-              const participants = message.payload.participants.map((p: any) => ({
+              const participants = message.payload.participants.map((p: any, index: number) => ({
                 id: p.id,
                 nickname: p.nickname,
-                number: p.number || 0,
+                number: index + 1, // 서버에서 number가 없을 수 있으므로 클라이언트에서 설정
                 isHost: p.isHost || false,
               })) as Participant[];
               gameStore.setParticipants(participants);
@@ -340,12 +398,23 @@ class SocketService {
           case 'DISCONNECT_NOTICE':
             if (message.payload && message.payload.participantId) {
               console.log('참가자 연결 해제:', message.payload.nickname);
-              gameStore.removeParticipant(message.payload.participantId);
+              // 자신의 연결 해제가 아닌 경우에만 처리
+              if (message.payload.participantId !== this.socket?.id) {
+                gameStore.removeParticipant(message.payload.participantId);
+              }
             }
             break;
             
           case 'HOST_CHANGE':
             console.log('호스트 변경:', message.payload);
+            if (message.payload.newHostId === this.socket?.id) {
+              // 자신이 새 호스트가 된 경우
+              const participants = gameStore.participants.map(p => ({
+                ...p,
+                isHost: p.id === message.payload.newHostId
+              }));
+              gameStore.setParticipants(participants);
+            }
             break;
             
           default:

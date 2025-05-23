@@ -74,20 +74,21 @@ const Lobby: React.FC = () => {
     try {
       console.log(`방 참여 시도: roomId=${roomId}, nickname=${nickname}`);
       
-      // 1. 소켓 연결 초기화 (참가자 모드) - 닉네임도 함께 전달
-      await socketService.initSocket(roomId, false, nickname);
-      
-      // 2. 스토어 상태 업데이트
+      // 1. 스토어 상태 업데이트 (먼저 수행)
       joinRoom(roomId, nickname);
       
-      // 연결 성공 후 잠시 대기
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 2. 소켓 연결 초기화 (참가자 모드) - 닉네임도 함께 전달
+      const success = await socketService.initSocket(roomId, false, nickname);
       
-      // 3. 소켓으로 참여 요청 전송
-      socketService.joinRoom(nickname);
+      if (!success) {
+        throw new Error('소켓 연결에 실패했습니다.');
+      }
       
-      // 4. 대기 상태 활성화
-      setWaitingForGame(true);
+      // 3. 연결 성공 후 JOIN_REQUEST 전송
+      setTimeout(() => {
+        socketService.joinRoom(nickname);
+        setWaitingForGame(true);
+      }, 500);
       
       // 성공 시 진동 피드백
       if (navigator.vibrate) {
@@ -120,23 +121,41 @@ const Lobby: React.FC = () => {
     }
   }, [gameState.status, gameState.type, navigate]);
   
-  // 참가자 목록 변화 감지
+  // 참가자 목록 변화 감지 - 수정된 버전
   useEffect(() => {
     console.log('참가자 목록 변화:', participants);
     if (isJoining && participants.length > 0) {
-      setIsJoining(false);
+      // 자신이 참가자 목록에 포함되어 있는지 확인
+      const myParticipant = participants.find(p => p.nickname === nickname);
+      if (myParticipant) {
+        setIsJoining(false);
+        console.log('참가 완료:', myParticipant);
+      }
     }
-  }, [participants, isJoining]);
+  }, [participants, isJoining, nickname]);
   
-  // 컴포넌트 언마운트 시 소켓 연결 해제
+  // 컴포넌트 언마운트 시 소켓 연결 해제 - 수정된 버전
   useEffect(() => {
     return () => {
       // 게임이 시작되지 않은 상태에서 페이지를 나가는 경우에만 연결 해제
       if (!waitingForGame || gameState.status === 'waiting') {
+        console.log('컴포넌트 언마운트 - 소켓 연결 해제');
         socketService.disconnect();
       }
     };
   }, [waitingForGame, gameState.status]);
+
+  // 나가기 처리
+  const handleLeave = () => {
+    setWaitingForGame(false);
+    setIsJoining(false);
+    setError(null);
+    socketService.disconnect();
+    
+    // 스토어 상태도 초기화
+    const { leaveRoom } = useGameStore.getState();
+    leaveRoom();
+  };
 
   // 대기 화면이 표시되고 있는 경우
   if (waitingForGame) {
@@ -193,11 +212,7 @@ const Lobby: React.FC = () => {
           )}
           
           <motion.button
-            onClick={() => {
-              setWaitingForGame(false);
-              setIsJoining(false);
-              socketService.disconnect();
-            }}
+            onClick={handleLeave}
             className="mt-8 px-6 py-3 bg-white border-2 border-black text-black font-mono
                        hover:bg-black hover:text-white transition-colors"
             whileHover={{ scale: 1.05 }}

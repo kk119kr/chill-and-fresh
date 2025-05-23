@@ -1,10 +1,10 @@
-// src/store/gameStore.ts 수정 (자동 번호 채번)
+// src/store/gameStore.ts 수정 (닉네임 문제 해결)
 import { create } from 'zustand';
 
 export interface Participant {
   id: string;
-  nickname: string; // nickname 속성 추가
-  number: number; // 1번부터 순차적으로 채번
+  nickname: string;
+  number: number;
   isHost: boolean;
 }
 
@@ -72,10 +72,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // roomId 생성
     const generatedRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // 호스트 참가자 생성 (1번)
+    // 호스트 참가자 생성 (닉네임 문제 해결)
     const hostParticipant: Participant = {
       id: `host_${Date.now()}`,
-      nickname: '호스트', // 기본 닉네임
+      nickname: '호스트', // 기본 닉네임 설정
       number: 1,
       isHost: true,
     };
@@ -103,7 +103,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
     
     set({
-      roomId, // 이미 roomId를 사용하고 있으므로 currentRoomId 변수가 불필요
+      roomId,
       isHost: false,
       participantNumber: nextNumber,
       participants: [...currentParticipants, newParticipant],
@@ -132,7 +132,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   
   removeParticipant: (participantId) => {
-    const { participants } = get();
+    const { participants, participantNumber, isHost } = get();
+    const currentUser = participants.find(p => p.number === participantNumber);
+    
+    // 현재 사용자가 삭제되는 경우 방을 나가기
+    if (currentUser && currentUser.id === participantId) {
+      set({
+        roomId: '',
+        isHost: false,
+        participantNumber: 0,
+        participants: [],
+        gameState: initialGameState,
+      });
+      return;
+    }
+    
     const updatedParticipants = participants.filter(p => p.id !== participantId);
     
     // 번호 재정렬
@@ -142,27 +156,34 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isHost: index === 0, // 첫 번째 참가자가 호스트
     }));
     
-    // 현재 사용자가 새 호스트가 되었는지 확인
-    const currentUser = get().participants.find(p => p.number === get().participantNumber);
-    const newHost = reorderedParticipants.length > 0 && currentUser && reorderedParticipants[0].id === currentUser.id;
+    // 현재 사용자의 새로운 정보 계산
+    const newCurrentUser = reorderedParticipants.find(p => p.id === currentUser?.id);
+    const newParticipantNumber = newCurrentUser ? newCurrentUser.number : participantNumber;
+    const newIsHost = newCurrentUser ? newCurrentUser.isHost : isHost;
     
     set({
       participants: reorderedParticipants,
-      isHost: newHost || get().isHost,
-      participantNumber: currentUser ? 
-        reorderedParticipants.findIndex(p => p.id === currentUser.id) + 1 : 
-        get().participantNumber
+      isHost: newIsHost,
+      participantNumber: newParticipantNumber
     });
   },
   
-  // 참가자 목록 설정
+  // 참가자 목록 설정 (서버에서 받은 데이터로 동기화)
   setParticipants: (participants) => {
-    const currentParticipantNumber = get().participantNumber;
-    const currentParticipant = participants.find(p => p.number === currentParticipantNumber);
+    const { participantNumber, isHost } = get();
+    
+    // 현재 사용자 정보 찾기
+    const currentParticipant = participants.find(p => p.number === participantNumber);
+    
+    // 현재 사용자가 목록에 없으면 상태 초기화
+    if (!currentParticipant && participants.length > 0) {
+      console.log('현재 사용자가 참가자 목록에서 제거됨');
+      return;
+    }
     
     set({
       participants,
-      isHost: currentParticipant?.isHost || false,
+      isHost: currentParticipant?.isHost || isHost,
     });
   },
   
