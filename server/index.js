@@ -197,7 +197,22 @@ io.on('connection', (socket) => {
       socket.disconnect();
       return;
     }
-  }
+  rooms[roomId].participants.push(user);
+
+  const joinMessage = {
+    type: 'ROOM_UPDATE',
+    sender: 'server',
+    timestamp: Date.now(),
+    payload: {
+      participants: rooms[roomId].participants.map(p => ({
+        id: p.id,
+        nickname: p.nickname,
+        isHost: p.isHost,
+      })),
+    },
+  };
+  forwardMessageToRoom(roomId, joinMessage);
+}
   
   // 소켓 핑/퐁 이벤트 처리
   socket.on('ping', (callback) => {
