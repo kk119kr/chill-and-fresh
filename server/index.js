@@ -197,6 +197,26 @@ io.on('connection', (socket) => {
       socket.disconnect();
       return;
     }
+
+         // ─── 참가자 등록 시작 ───────────────────────────────────────
+     const participant = {
+       socketId: socket.id,
+       nickname: socket.handshake.query.nickname || '익명',
+       isHost: false,
+     };
+     rooms[roomId].participants.push(participant);
+
+     // 방 업데이트를 모든 클라이언트에 알림
+     io.to(roomId).emit('ROOM_UPDATE', {
+       participants: rooms[roomId].participants.map(p => ({
+         socketId: p.socketId,
+         nickname: p.nickname,
+         isHost: p.isHost,
+       })),
+     });
+     logWithTimestamp(`참가자 등록됨: ${participant.nickname} (${socket.id})`);
+     // ─── 참가자 등록 끝 ───────────────────────────────────────
+    
   rooms[roomId].participants.push(user);
 
   const joinMessage = {

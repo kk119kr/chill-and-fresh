@@ -30,9 +30,9 @@ const RoomCreation: React.FC = () => {
   }, []);
   
   // QR 코드에 포함될 URL 생성
-  const qrCodeValue = roomId 
-    ? `${window.location.origin}/join?roomId=${roomId}` 
-    : '';
+const qrCodeValue = roomId 
+  ? `${window.location.origin}/join?roomId=${roomId}&isHost=false`
+  : '';
   
   // 방 생성 함수
   const handleCreateRoom = async () => {
