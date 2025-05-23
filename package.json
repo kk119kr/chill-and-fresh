@@ -10,13 +10,9 @@
     "preview": "vite preview",
     "start:server": "node server/index.js",
     "dev:host": "concurrently \"npm run dev\" \"npm run start:server\"",
-    
-    // Railway 배포용 스크립트 추가
     "build:railway": "npm run build && npm run copy-build",
     "copy-build": "cp -r dist/* server/public/",
     "start": "npm run build:railway && node server/index.js",
-    
-    // Railway 프로덕션 시작 명령어
     "railway:start": "node server/index.js"
   },   
   "dependencies": {     
@@ -30,8 +26,6 @@
     "react-router-dom": "^7.6.0",     
     "socket.io-client": "^4.8.1",     
     "zustand": "^5.0.4",
-    
-    // 서버 의존성도 dependencies로 이동 (Railway 배포용)
     "express": "^4.21.2",
     "socket.io": "^4.8.1",
     "cors": "^2.8.5"
