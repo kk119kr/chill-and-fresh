@@ -160,13 +160,19 @@ io.on('connection', (socket) => {
   socket.join(roomId);
   logWithTimestamp(`소켓 ${socket.id}이(가) 방 ${roomId}에 조인함`);
   
-  // 호스트인 경우 방 생성
+  // 호스트인 경우 방 생성 또는 호스트 복구
+ // 호스트인 경우 방 생성 또는 호스트 복구
   if (isHost === 'true') {
     if (!rooms[roomId]) {
       rooms[roomId] = {
         id: roomId,
         hostId: socket.id,
-        participants: [],
+        participants: [{
+          id: `host_${socket.id}`,
+          socketId: socket.id,
+          nickname: nickname || '호스트',
+          isHost: true,
+        }],
         gameState: {
           status: 'waiting',
           type: null,
@@ -178,10 +184,25 @@ io.on('connection', (socket) => {
       };
       logWithTimestamp(`방 생성됨: ${roomId}, 호스트: ${socket.id}`);
     } else {
+      // 기존 방이 있는 경우 호스트 정보 업데이트
       rooms[roomId].hostId = socket.id;
+      // 기존 호스트 참가자 정보 업데이트
+      const existingHost = rooms[roomId].participants.find(p => p.isHost);
+      if (existingHost) {
+        existingHost.socketId = socket.id;
+      } else {
+        // 호스트가 없으면 새로 추가
+        rooms[roomId].participants.unshift({
+          id: `host_${socket.id}`,
+          socketId: socket.id,
+          nickname: nickname || '호스트',
+          isHost: true,
+        });
+      }
       logWithTimestamp(`기존 방의 호스트 업데이트: ${roomId}, 새 호스트: ${socket.id}`);
     }
     
+    // 호스트에게 방 생성 확인 메시지
     socket.emit('message', {
       type: 'ROOM_CREATED',
       sender: 'server',
@@ -191,26 +212,8 @@ io.on('connection', (socket) => {
         hostId: socket.id
       }
     });
-  } else {
-    // 참가자인 경우
-    if (!rooms[roomId]) {
-      socket.emit('error', { message: '존재하지 않는 방입니다.' });
-      socket.disconnect();
-      return;
-    }
 
-    // 참가자 등록 (중복 코드 제거 및 수정)
-    const participant = {
-      id: `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      socketId: socket.id,
-      nickname: nickname || '익명',
-      isHost: false,
-    };
-    
-    rooms[roomId].participants.push(participant);
-    logWithTimestamp(`참가자 등록됨: ${participant.nickname} (${socket.id})`);
-
-    // 방 업데이트를 모든 클라이언트에 알림
+    // 참가자 목록 업데이트 전송
     const updateMessage = {
       type: 'PLAYER_LIST_UPDATE',
       sender: 'server',
@@ -225,130 +228,79 @@ io.on('connection', (socket) => {
     };
     
     io.to(roomId).emit('message', updateMessage);
-    
-    // 참가자에게 참여 확인 메시지 전송
-    socket.emit('message', {
-      type: 'JOIN_CONFIRMED',
-      sender: 'server',
-      timestamp: Date.now(),
-      payload: {
-        participant: {
-          id: participant.id,
-          nickname: participant.nickname,
-          isHost: participant.isHost,
-        },
-        gameState: rooms[roomId].gameState,
-      },
-    });
+  }
+
+// ===== handleJoinRequest 함수 수정 (기존 함수 교체) =====
+function handleJoinRequest(socket, room, message) {
+  const { nickname } = message.payload;
+  
+  if (!nickname) {
+    socket.emit('error', { message: '닉네임이 필요합니다.' });
+    return;
   }
   
-  // 소켓 핑/퐁 이벤트 처리
-  socket.on('ping', (callback) => {
-    if (typeof callback === 'function') {
-      callback();
-    }
-  });
+  // 이미 참가했는지 확인 (socketId 기준)
+  if (room.participants.some(p => p.socketId === socket.id)) {
+    logWithTimestamp('이미 참가한 소켓:', socket.id);
+    return;
+  }
   
-  // 메시지 수신 처리
-  socket.on('message', (message) => {
-    logWithTimestamp('메시지 수신:', message.type);
-    
-    const room = rooms[roomId];
-    if (!room) {
-      logWithTimestamp(`존재하지 않는 방: ${roomId}`);
-      socket.emit('error', { message: '존재하지 않는 방입니다.' });
-      return;
-    }
-    
-    try {
-      switch (message.type) {
-        case 'JOIN_REQUEST':
-          handleJoinRequest(socket, room, message);
-          break;
-          
-        case 'GAME_START':
-          handleGameStart(socket, room, message);
-          break;
-          
-        case 'TAP_EVENT':
-          handleTapEvent(socket, room, message);
-          break;
-          
-        default:
-          forwardMessageToRoom(room.id, message);
-      }
-    } catch (error) {
-      logWithTimestamp('메시지 처리 오류:', error);
-      socket.emit('error', { message: `메시지 처리 오류: ${error.message}` });
-    }
-  });
+  const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
-  // 연결 해제 처리
-  socket.on('disconnect', (reason) => {
-    logWithTimestamp(`연결 해제: ${socket.id}, 이유: ${reason}`);
+  const newParticipant = {
+    id: participantId,
+    socketId: socket.id,
+    nickname,
+    isHost: false,
+  };
+  
+  // 참가자 추가 (호스트가 아닌 참가자만)
+  room.participants.push(newParticipant);
+  logWithTimestamp(`참가자 추가: ${nickname} (${socket.id}), 총 참가자: ${room.participants.length}`);
+  
+  // 참가 확인 메시지
+  const confirmMessage = {
+    type: 'JOIN_CONFIRMED',
+    sender: 'server',
+    timestamp: Date.now(),
+    payload: {
+      participant: {
+        id: newParticipant.id,
+        nickname: newParticipant.nickname,
+        isHost: newParticipant.isHost,
+      },
+      gameState: room.gameState,
+    },
+  };
+  
+  socket.emit('message', confirmMessage);
+  
+  // 모든 클라이언트에게 참가자 목록 업데이트 전송
+  const updateMessage = {
+    type: 'PLAYER_LIST_UPDATE',
+    sender: 'server',
+    timestamp: Date.now(),
+    payload: {
+      participants: room.participants.map(p => ({
+        id: p.id,
+        nickname: p.nickname,
+        isHost: p.isHost,
+      })),
+    },
+  };
+  
+  io.to(room.id).emit('message', updateMessage);
+}
     
-    const room = rooms[roomId];
-    if (!room) return;
+    forwardMessageToRoom(room.id, updateMessage);
     
-    const index = room.participants.findIndex(p => p.socketId === socket.id);
-    if (index !== -1) {
-      const participant = room.participants[index];
-      
-      room.participants.splice(index, 1);
-      
-      const disconnectMessage = {
-        type: 'DISCONNECT_NOTICE',
-        sender: 'server',
-        timestamp: Date.now(),
-        payload: {
-          participantId: participant.id,
-          nickname: participant.nickname,
-        },
-      };
-      
-      forwardMessageToRoom(room.id, disconnectMessage);
-      
-      // 참가자 목록 업데이트 전송
-      const updateMessage = {
-        type: 'PLAYER_LIST_UPDATE',
-        sender: 'server',
-        timestamp: Date.now(),
-        payload: {
-          participants: room.participants.map(p => ({
-            id: p.id,
-            nickname: p.nickname,
-            isHost: p.isHost,
-          })),
-        },
-      };
-      
-      forwardMessageToRoom(room.id, updateMessage);
-      
-      if (socket.id === room.hostId && room.participants.length > 0) {
-        const newHost = room.participants[0];
-        newHost.isHost = true;
-        room.hostId = newHost.socketId;
-        
-        const hostChangeMessage = {
-          type: 'HOST_CHANGE',
-          sender: 'server',
-          timestamp: Date.now(),
-          payload: {
-            newHostId: newHost.id,
-            newHostNickname: newHost.nickname,
-          },
-        };
-        
-        forwardMessageToRoom(room.id, hostChangeMessage);
-        logWithTimestamp(`호스트 변경: ${room.id}, 새 호스트: ${newHost.socketId}`);
-      }
-      
-      if (room.participants.length === 0) {
-        delete rooms[room.id];
-        logWithTimestamp(`방 삭제됨: ${room.id}`);
-      }
+    // 방이 비었으면 삭제
+    if (room.participants.length === 0) {
+      delete rooms[room.id];
+      logWithTimestamp(`방 삭제됨: ${room.id}`);
     }
-  });
+  }
+});
   
   socket.on('error', (error) => {
     logWithTimestamp('소켓 오류:', error);
@@ -365,35 +317,43 @@ function handleJoinRequest(socket, room, message) {
     return;
   }
   
+  // 이미 참가했는지 확인 (socketId 기준)
   if (room.participants.some(p => p.socketId === socket.id)) {
-    socket.emit('error', { message: '이미 참가 중입니다.' });
+    logWithTimestamp('이미 참가한 소켓:', socket.id);
     return;
   }
   
-  const participantId = message.sender || `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
   const newParticipant = {
     id: participantId,
     socketId: socket.id,
     nickname,
-    isHost: socket.id === room.hostId,
+    isHost: false,
   };
   
+  // 참가자 추가 (호스트가 아닌 참가자만)
   room.participants.push(newParticipant);
-  logWithTimestamp(`참가자 추가: ${nickname} (${socket.id})`);
+  logWithTimestamp(`참가자 추가: ${nickname} (${socket.id}), 총 참가자: ${room.participants.length}`);
   
+  // 참가 확인 메시지
   const confirmMessage = {
     type: 'JOIN_CONFIRMED',
     sender: 'server',
     timestamp: Date.now(),
     payload: {
-      participant: newParticipant,
+      participant: {
+        id: newParticipant.id,
+        nickname: newParticipant.nickname,
+        isHost: newParticipant.isHost,
+      },
       gameState: room.gameState,
     },
   };
   
   socket.emit('message', confirmMessage);
   
+  // 모든 클라이언트에게 참가자 목록 업데이트 전송
   const updateMessage = {
     type: 'PLAYER_LIST_UPDATE',
     sender: 'server',
@@ -406,6 +366,9 @@ function handleJoinRequest(socket, room, message) {
       })),
     },
   };
+  
+  io.to(room.id).emit('message', updateMessage);
+}
   
   forwardMessageToRoom(room.id, updateMessage);
 }
