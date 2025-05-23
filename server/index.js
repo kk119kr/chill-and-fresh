@@ -25,7 +25,7 @@ const app = express();
 const server = createServer(app);
 
 // 포트 설정 - Railway에서 제공하는 PORT 환경변수 사용
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT) || 3001;
 const HOST = '0.0.0.0'; // Railway에서는 항상 0.0.0.0으로 바인딩
 
 logWithTimestamp(`환경: ${process.env.NODE_ENV || 'development'}`);
