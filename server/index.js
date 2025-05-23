@@ -11,16 +11,39 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 디버깅용 로그 추가
+const logWithTimestamp = (message, data = null) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${message}`);
+  if (data) console.log(JSON.stringify(data, null, 2));
+};
+
+logWithTimestamp('서버 초기화 시작...');
+
 // 서버 설정
 const app = express();
 const server = createServer(app);
 
+// 포트 설정 - Railway에서 제공하는 PORT 환경변수 사용
+const PORT = process.env.PORT || 3001;
+const HOST = '0.0.0.0'; // Railway에서는 항상 0.0.0.0으로 바인딩
+
+logWithTimestamp(`환경: ${process.env.NODE_ENV || 'development'}`);
+logWithTimestamp(`포트: ${PORT}`);
+
 // CORS 설정
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : null,
+      'https://*.railway.app'
+    ].filter(Boolean)
+  : ["http://localhost:5173", "http://localhost:3000"];
+
+logWithTimestamp('허용된 오리진:', allowedOrigins);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? [`https://${process.env.RAILWAY_STATIC_URL}`, 'https://*.railway.app']
-      : ["http://localhost:5173", "http://localhost:3000"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -32,9 +55,7 @@ const io = new Server(server, {
 });
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [`https://${process.env.RAILWAY_STATIC_URL}`, 'https://*.railway.app']
-    : ["http://localhost:5173", "http://localhost:3000"],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -42,8 +63,11 @@ app.use(express.json());
 // ===== 정적 파일 서빙 (프론트엔드) =====
 // 프로덕션 환경에서 빌드된 React 앱을 서빙
 if (process.env.NODE_ENV === 'production') {
+  const publicPath = path.join(__dirname, 'public');
+  logWithTimestamp(`정적 파일 경로: ${publicPath}`);
+  
   // 빌드된 정적 파일들을 서빙
-  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.static(publicPath));
   
   // SPA 라우팅을 위한 fallback
   app.get('*', (req, res, next) => {
@@ -51,19 +75,14 @@ if (process.env.NODE_ENV === 'production') {
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
       return next();
     }
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    const indexPath = path.join(publicPath, 'index.html');
+    logWithTimestamp(`index.html 반환: ${indexPath}`);
+    res.sendFile(indexPath);
   });
 }
 
 // 방 목록 (메모리 저장)
 const rooms = {};
-
-// 디버깅용 로그 추가
-const logWithTimestamp = (message, data = null) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
-  if (data) console.log(JSON.stringify(data, null, 2));
-};
 
 // 로컬 IP 주소 가져오기
 const getLocalIpAddress = () => {
@@ -82,17 +101,20 @@ const getLocalIpAddress = () => {
 
 // ===== API 엔드포인트 =====
 app.get('/api/health', (req, res) => {
-  res.json({
+  logWithTimestamp('Health check 요청');
+  res.status(200).json({
     status: 'online',
     environment: process.env.NODE_ENV || 'development',
     rooms: Object.keys(rooms).length,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    port: PORT
   });
 });
 
 // 로컬 IP 주소 가져오기 API
 app.get('/api/local-ip', (req, res) => {
   const ipAddress = getLocalIpAddress();
+  logWithTimestamp(`로컬 IP 요청: ${ipAddress}`);
   res.json({ ip: ipAddress });
 });
 
@@ -109,6 +131,17 @@ app.get('/api/status', (req, res) => {
 // Ping 엔드포인트
 app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
+});
+
+// 루트 경로 처리 (개발 환경용)
+app.get('/', (req, res) => {
+  if (process.env.NODE_ENV !== 'production') {
+    res.json({
+      message: 'Chill and Fresh 서버가 실행 중입니다!',
+      status: 'online',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
 });
 
 // ===== 소켓 연결 이벤트 처리 =====
@@ -382,9 +415,6 @@ function forwardMessageToRoom(roomId, message) {
 }
 
 // ===== 서버 시작 =====
-const PORT = process.env.PORT || 3001;
-const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
-
 server.listen(PORT, HOST, () => {
   const ipAddress = getLocalIpAddress();
   logWithTimestamp(`서버 시작: ${HOST}:${PORT}`);
@@ -405,10 +435,29 @@ server.listen(PORT, HOST, () => {
 // 예기치 않은 에러 처리
 process.on('uncaughtException', (err) => {
   logWithTimestamp('예기치 않은 오류:', err);
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logWithTimestamp('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// 종료 신호 처리
+process.on('SIGINT', () => {
+  logWithTimestamp('SIGINT 수신, 서버 종료 중...');
+  server.close(() => {
+    logWithTimestamp('서버가 정상적으로 종료되었습니다.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  logWithTimestamp('SIGTERM 수신, 서버 종료 중...');
+  server.close(() => {
+    logWithTimestamp('서버가 정상적으로 종료되었습니다.');
+    process.exit(0);
+  });
 });
 
 logWithTimestamp('통합 서버 초기화 완료 (프론트엔드 + 소켓)');
