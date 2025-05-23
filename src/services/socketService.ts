@@ -1,4 +1,4 @@
-// src/services/socketService.ts (Railway 통합)
+// src/services/socketService.ts (Railway 통합 - 수정된 버전)
 import { io, Socket } from 'socket.io-client';
 import { useGameStore, Participant, GameType } from '../store/gameStore';
 
@@ -45,15 +45,38 @@ class SocketService {
     return this.connectionErrorMessage;
   }
   
-  // 소켓 서버 URL 가져오기
+  // 소켓 서버 URL 가져오기 - 수정된 버전
   private getServerUrl(): string {
-    // Railway에서는 같은 서버에서 프론트엔드와 소켓을 모두 제공
-    if (import.meta.env.PROD) {
-      // 프로덕션: 현재 도메인 사용
-      return window.location.origin;
+    // 현재 페이지의 호스트명과 포트 확인
+    const currentHost = window.location.hostname;
+    const currentPort = window.location.port;
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    
+    console.log(`현재 호스트: ${currentHost}, 포트: ${currentPort}, 프로토콜: ${protocol}`);
+    
+    // Railway 배포 환경 감지
+    if (currentHost.includes('railway.app') || 
+        currentHost.includes('up.railway.app') ||
+        (import.meta.env.PROD && currentHost !== 'localhost')) {
+      // Railway 프로덕션 환경
+      const serverUrl = `${protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}`;
+      console.log(`Railway 프로덕션 URL: ${serverUrl}`);
+      return serverUrl;
+    } else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // 로컬 개발 환경
+      if (currentPort === '5173') {
+        // Vite 개발 서버에서 실행 중
+        console.log('로컬 개발 환경 감지 - 포트 3001로 연결');
+        return 'http://localhost:3001';
+      } else {
+        // 로컬에서 빌드된 버전 실행 중
+        console.log('로컬 빌드 버전 - 현재 포트 사용');
+        return window.location.origin;
+      }
     } else {
-      // 개발: 로컬 서버
-      return 'http://localhost:3001';
+      // 기타 환경 - 현재 도메인 사용
+      console.log('기타 환경 - 현재 도메인 사용');
+      return window.location.origin;
     }
   }
   
@@ -75,7 +98,7 @@ class SocketService {
     try {
       // 서버 URL 설정
       this.serverUrl = this.getServerUrl();
-      console.log(`서버 URL: ${this.serverUrl}`);
+      console.log(`최종 서버 URL: ${this.serverUrl}`);
       
       return new Promise((resolve, reject) => {
         try {
@@ -110,6 +133,7 @@ class SocketService {
             this.connectionErrorMessage = `연결 오류: ${error.message}`;
             
             console.error('소켓 연결 오류:', error.message, `(시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            console.error('연결 시도 URL:', this.serverUrl);
             
             if (this.reconnectAttempts >= this.maxReconnectAttempts) {
               reject(new Error(`서버 연결 실패: ${error.message}`));
