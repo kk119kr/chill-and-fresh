@@ -63,7 +63,7 @@ app.use(express.json());
 // ===== 정적 파일 서빙 (프론트엔드) =====
 // 프로덕션 환경에서 빌드된 React 앱을 서빙
 if (process.env.NODE_ENV === 'production') {
-  const publicPath = path.join(__dirname, 'public');
+  const publicPath = path.join(__dirname, '..', 'dist');
   logWithTimestamp(`정적 파일 경로: ${publicPath}`);
   
   // 빌드된 정적 파일들을 서빙
