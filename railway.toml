@@ -6,11 +6,8 @@
 builder = "NIXPACKS"
 
 [deploy]
-# 시작 명령어
-startCommand = "node server/index.js"
-
-# 포트 설정 (Railway가 자동으로 할당)
-# PORT 환경변수 사용
+# 시작 명령어 - 빌드된 파일을 복사하고 서버 시작
+startCommand = "npm run start"
 
 # 헬스체크 경로
 healthcheckPath = "/api/health"
