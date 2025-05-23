@@ -14,7 +14,6 @@ healthcheckPath = "/api/health"
 # 환경 변수
 [env]
 NODE_ENV = "production"
-PORT = "${{PORT}}"
 
 # 재시작 정책
 restartPolicyType = "ON_FAILURE"
