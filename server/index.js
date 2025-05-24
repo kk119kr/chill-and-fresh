@@ -1,4 +1,4 @@
-// server/index.js (ES 모듈 오류 수정 버전)
+// server/index.js (빌드 파일 경로 문제 해결 버전)
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -62,43 +62,70 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ===== 정적 파일 서빙 (프론트엔드) - 수정된 버전 =====
+// ===== 정적 파일 서빙 (프론트엔드) - 경로 수정 =====
 if (process.env.NODE_ENV === 'production') {
-  const publicPath = path.join(__dirname, 'public');
-  logWithTimestamp(`정적 파일 경로: ${publicPath}`);
+  // 빌드 파일 경로들을 순차적으로 확인
+  const possiblePaths = [
+    path.join(__dirname, 'public'),     // server/public
+    path.join(__dirname, '..', 'dist'), // dist (루트에서)
+    path.join(process.cwd(), 'dist'),   // 현재 작업 디렉토리의 dist
+    path.join(process.cwd(), 'server', 'public'), // 현재 작업 디렉토리의 server/public
+  ];
   
-  // 정적 파일이 있는지 확인
-  try {
-    const indexExists = fs.existsSync(path.join(publicPath, 'index.html'));
-    logWithTimestamp(`index.html 존재 여부: ${indexExists}`);
-    
-    if (indexExists) {
-      // 정적 파일 미들웨어 설정
-      app.use(express.static(publicPath, {
-        maxAge: '1d', // 1일 캐시
-        setHeaders: (res, path) => {
-          if (path.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache'); // HTML은 캐시하지 않음
-          }
-        }
-      }));
-      logWithTimestamp('정적 파일 서빙 설정 완료');
-    } else {
-      logWithTimestamp('경고: index.html을 찾을 수 없습니다!');
-      // public 디렉토리 내용 확인
-      try {
-        if (fs.existsSync(publicPath)) {
-          const files = fs.readdirSync(publicPath);
-          logWithTimestamp('public 디렉토리 내용:', files);
-        } else {
-          logWithTimestamp('public 디렉토리가 존재하지 않습니다.');
-        }
-      } catch (dirErr) {
-        logWithTimestamp('디렉토리 읽기 오류:', dirErr.message);
-      }
+  let publicPath = null;
+  let indexPath = null;
+  
+  // 각 경로를 확인하여 index.html이 있는 첫 번째 경로 찾기
+  for (const testPath of possiblePaths) {
+    const testIndexPath = path.join(testPath, 'index.html');
+    if (fs.existsSync(testIndexPath)) {
+      publicPath = testPath;
+      indexPath = testIndexPath;
+      break;
     }
-  } catch (error) {
-    logWithTimestamp('정적 파일 설정 오류:', error);
+  }
+  
+  if (publicPath && indexPath) {
+    logWithTimestamp(`정적 파일 경로 발견: ${publicPath}`);
+    logWithTimestamp(`index.html 경로: ${indexPath}`);
+    
+    // 정적 파일 미들웨어 설정
+    app.use(express.static(publicPath, {
+      maxAge: '1d', // 1일 캐시
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache'); // HTML은 캐시하지 않음
+        }
+      }
+    }));
+    logWithTimestamp('정적 파일 서빙 설정 완료');
+    
+    // 디렉토리 내용 로깅
+    try {
+      const files = fs.readdirSync(publicPath);
+      logWithTimestamp('정적 파일 디렉토리 내용:', files);
+    } catch (err) {
+      logWithTimestamp('디렉토리 읽기 오류:', err.message);
+    }
+  } else {
+    logWithTimestamp('경고: index.html을 찾을 수 없습니다!');
+    
+    // 모든 경로 확인 결과 로깅
+    possiblePaths.forEach((testPath, i) => {
+      const exists = fs.existsSync(testPath);
+      const indexExists = exists ? fs.existsSync(path.join(testPath, 'index.html')) : false;
+      logWithTimestamp(`경로 ${i + 1}: ${testPath}`, {
+        exists,
+        indexExists,
+        files: exists ? (function() {
+          try {
+            return fs.readdirSync(testPath);
+          } catch {
+            return 'read error';
+          }
+        })() : 'path not found'
+      });
+    });
   }
 }
 
@@ -130,7 +157,8 @@ app.get('/api/health', (req, res) => {
     memory: process.memoryUsage(),
     environment: process.env.NODE_ENV,
     rooms: Object.keys(rooms).length,
-    totalConnections: io.engine.clientsCount
+    totalConnections: io.engine.clientsCount,
+    staticFilesPath: process.env.NODE_ENV === 'production' ? 'configured' : 'dev mode'
   };
   
   res.status(200).json(health);
@@ -158,46 +186,41 @@ app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// 루트 경로 처리 - 수정된 버전
+// 루트 경로 처리 - 개선된 버전
 app.get('/', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
+    // 이미 설정된 정적 파일 미들웨어를 사용
+    // Express의 정적 파일 서빙이 자동으로 index.html을 제공함
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    logWithTimestamp(`루트 경로 요청 - index.html 경로: ${indexPath}`);
     
-    try {
-      if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath, (err) => {
-          if (err) {
-            logWithTimestamp('index.html 전송 오류:', err);
-            res.status(500).json({
-              error: 'index.html 전송 중 오류 발생',
-              path: indexPath,
-              exists: fs.existsSync(indexPath)
-            });
-          }
-        });
-      } else {
-        logWithTimestamp('index.html 파일이 존재하지 않음');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      // 대체 경로들 시도
+      const altPaths = [
+        path.join(__dirname, '..', 'dist', 'index.html'),
+        path.join(process.cwd(), 'dist', 'index.html'),
+        path.join(process.cwd(), 'server', 'public', 'index.html')
+      ];
+      
+      let found = false;
+      for (const altPath of altPaths) {
+        if (fs.existsSync(altPath)) {
+          res.sendFile(altPath);
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
         res.status(404).json({
-          error: 'index.html을 찾을 수 없습니다',
-          path: indexPath,
-          exists: false,
-          publicDir: (() => {
-            try {
-              const publicPath = path.join(__dirname, 'public');
-              return fs.existsSync(publicPath) ? fs.readdirSync(publicPath) : 'public directory not found';
-            } catch (err) {
-              return `Error: ${err.message}`;
-            }
-          })()
+          error: 'Frontend build not found',
+          message: 'Please ensure the build process completed successfully',
+          paths_checked: [indexPath, ...altPaths],
+          cwd: process.cwd(),
+          dirname: __dirname
         });
       }
-    } catch (error) {
-      logWithTimestamp('루트 경로 처리 오류:', error);
-      res.status(500).json({
-        error: '서버 오류',
-        message: error.message
-      });
     }
   } else {
     res.json({
@@ -208,7 +231,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// SPA 라우팅을 위한 fallback - 수정된 버전
+// SPA 라우팅을 위한 fallback - 개선된 버전
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res, next) => {
     // API 경로나 소켓 경로가 아닌 경우에만 index.html 반환
@@ -216,35 +239,38 @@ if (process.env.NODE_ENV === 'production') {
       return next();
     }
     
-    const indexPath = path.join(__dirname, 'public', 'index.html');
-    logWithTimestamp(`SPA 라우팅 - 경로: ${req.path}, index.html 경로: ${indexPath}`);
+    // 파일 확장자가 있는 경우 (JS, CSS, 이미지 등) 404 반환
+    if (path.extname(req.path)) {
+      return res.status(404).send('File not found');
+    }
     
-    try {
-      if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath, (err) => {
-          if (err) {
-            logWithTimestamp('SPA 라우팅 오류:', err);
-            res.status(404).json({
-              error: 'Page not found',
-              requestedPath: req.path,
-              indexPath: indexPath,
-              exists: false
-            });
-          }
-        });
-      } else {
+    // index.html 찾기 (위와 동일한 로직)
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      const altPaths = [
+        path.join(__dirname, '..', 'dist', 'index.html'),
+        path.join(process.cwd(), 'dist', 'index.html'),
+        path.join(process.cwd(), 'server', 'public', 'index.html')
+      ];
+      
+      let found = false;
+      for (const altPath of altPaths) {
+        if (fs.existsSync(altPath)) {
+          res.sendFile(altPath);
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
         res.status(404).json({
-          error: 'Application not built',
-          message: 'Frontend build files not found',
+          error: 'Page not found',
           requestedPath: req.path
         });
       }
-    } catch (error) {
-      logWithTimestamp('SPA 라우팅 처리 오류:', error);
-      res.status(500).json({
-        error: '서버 오류',
-        message: error.message
-      });
     }
   });
 }
@@ -538,15 +564,6 @@ server.listen(PORT, HOST, () => {
   
   if (process.env.NODE_ENV === 'production') {
     logWithTimestamp(`Railway URL: https://${process.env.RAILWAY_STATIC_URL || 'your-app'}.railway.app`);
-    
-    // 빌드 파일 확인
-    const publicPath = path.join(__dirname, 'public');
-    try {
-      const files = fs.readdirSync(publicPath);
-      logWithTimestamp(`public 디렉토리 파일들:`, files);
-    } catch (error) {
-      logWithTimestamp(`public 디렉토리 읽기 오류:`, error.message);
-    }
   } else {
     logWithTimestamp(`로컬 IP: http://${ipAddress}:${PORT}`);
   }
