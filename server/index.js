@@ -123,32 +123,17 @@ const getLocalIpAddress = () => {
 // ===== API 엔드포인트 =====
 // Railway healthcheck 경로
 app.get('/api/health', (req, res) => {
-  logWithTimestamp('Health check 요청');
-  
-  const healthData = {
+  const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    port: PORT,
-    rooms: Object.keys(rooms).length,
     memory: process.memoryUsage(),
-    pid: process.pid,
-    publicPath: process.env.NODE_ENV === 'production' ? path.join(__dirname, 'public') : 'N/A',
-    buildFiles: (() => {
-      try {
-        const publicPath = path.join(__dirname, 'public');
-        if (fs.existsSync(publicPath)) {
-          return fs.readdirSync(publicPath);
-        }
-        return 'public directory not found';
-      } catch (err) {
-        return `Error reading public directory: ${err.message}`;
-      }
-    })()
+    environment: process.env.NODE_ENV,
+    rooms: Object.keys(rooms).length,
+    totalConnections: io.engine.clientsCount
   };
   
-  res.status(200).json(healthData);
+  res.status(200).json(health);
 });
 
 // 로컬 IP 주소 가져오기 API

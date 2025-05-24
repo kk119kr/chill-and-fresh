@@ -1,4 +1,4 @@
-// src/services/socketService.ts (수정된 버전)
+// src/services/socketService.ts (TypeScript 경고 수정 버전)
 import { io, Socket } from 'socket.io-client';
 import { useGameStore, Participant, GameType } from '../store/gameStore';
 
@@ -26,7 +26,6 @@ export interface Message {
 
 class SocketService {
   private socket: Socket | null = null;
-  private serverUrl: string = ''; 
   private roomId: string = '';
   private isHost: boolean = false;
   private nickname: string = '';
@@ -46,7 +45,7 @@ class SocketService {
     return this.connectionErrorMessage;
   }
   
-  // 소켓 서버 URL 가져오기
+  // 소켓 서버 URL 가져오기 - 개선된 버전
   private getServerUrl(): string {
     const currentHost = window.location.hostname;
     const currentPort = window.location.port;
@@ -54,34 +53,34 @@ class SocketService {
     
     console.log(`현재 호스트: ${currentHost}, 포트: ${currentPort}, 프로토콜: ${protocol}`);
     
-    // Railway 배포 환경 감지
-    if (currentHost.includes('railway.app') || 
-        currentHost.includes('up.railway.app') ||
-        (import.meta.env.PROD && currentHost !== 'localhost')) {
-      const serverUrl = `${protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}`;
-      console.log(`Railway 프로덕션 URL: ${serverUrl}`);
+    // 프로덕션 환경에서는 항상 같은 도메인 사용
+    if (import.meta.env.PROD) {
+      const serverUrl = window.location.origin;
+      console.log(`프로덕션 URL: ${serverUrl}`);
       return serverUrl;
-    } else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+    }
+    
+    // 개발 환경에서만 다른 포트 사용
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
       if (currentPort === '5173') {
         console.log('로컬 개발 환경 감지 - 포트 3001로 연결');
         return 'http://localhost:3001';
-      } else {
-        console.log('로컬 빌드 버전 - 현재 포트 사용');
-        return window.location.origin;
       }
-    } else {
-      console.log('기타 환경 - 현재 도메인 사용');
-      return window.location.origin;
     }
+    
+    // 기본적으로는 현재 도메인 사용
+    console.log('기본 환경 - 현재 도메인 사용');
+    return window.location.origin;
   }
   
-  // 소켓 연결 초기화 - 수정된 버전
+  // 소켓 연결 초기화 - 개선된 버전
   public async initSocket(roomId: string, isHost: boolean, nickname?: string): Promise<boolean> {
     this.roomId = roomId;
     this.isHost = isHost;
     this.nickname = nickname || '';
     this.connectionStatus = 'connecting';
     this.connectionErrorMessage = '';
+    this.reconnectAttempts = 0; // 초기화
     
     console.log(`소켓 연결 시도: roomId=${roomId}, isHost=${isHost}, nickname=${this.nickname}`);
     
@@ -92,13 +91,13 @@ class SocketService {
     }
     
     try {
-      this.serverUrl = this.getServerUrl();
-      console.log(`최종 서버 URL: ${this.serverUrl}`);
+      const serverUrl = this.getServerUrl();
+      console.log(`최종 서버 URL: ${serverUrl}`);
       
       return new Promise((resolve, reject) => {
         try {
-          // Socket.IO 연결 옵션 - 수정된 버전
-          this.socket = io(this.serverUrl, {
+          // Socket.IO 연결 옵션 - 안정성 개선
+          this.socket = io(serverUrl, {
             query: { 
               roomId, 
               isHost: isHost ? 'true' : 'false',
@@ -107,8 +106,8 @@ class SocketService {
             reconnectionAttempts: this.maxReconnectAttempts,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            timeout: 20000,
-            transports: ['websocket', 'polling'],
+            timeout: 15000,
+            transports: ['polling', 'websocket'], // polling을 먼저 시도
             forceNew: true,
             autoConnect: true,
             withCredentials: false,
@@ -196,7 +195,7 @@ class SocketService {
     this.socket.emit('message', fullMessage);
   }
   
-  // 방 참여 요청 - 수정된 버전
+  // 방 참여 요청
   public joinRoom(nickname: string): void {
     console.log(`방 참여 요청: ${nickname}, roomId=${this.roomId}`);
     
@@ -259,7 +258,7 @@ class SocketService {
     });
   }
   
-  // 소켓 이벤트 핸들러 등록 - 수정된 버전
+  // 소켓 이벤트 핸들러 등록
   private registerEventHandlers(): void {
     if (!this.socket) return;
     
