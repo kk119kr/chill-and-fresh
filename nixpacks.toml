@@ -1,0 +1,23 @@
+# nixpacks.toml - Railway Nixpacks 빌드 설정
+
+[variables]
+NODE_VERSION = "18"
+
+[phases.setup]
+nixPkgs = ["nodejs_18", "npm"]
+
+[phases.install]
+cmd = "npm ci"
+
+[phases.build]
+# React 앱 빌드 후 서버 public 디렉토리로 복사
+cmd = [
+  "npm run build",
+  "mkdir -p server/public",
+  "cp -r dist/* server/public/",
+  "echo 'Build complete - files copied to server/public'",
+  "ls -la server/public/"
+]
+
+[start]
+cmd = "node server/index.js"

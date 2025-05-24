@@ -1,7 +1,7 @@
-# railway.toml - Railway 배포 설정 (healthcheck 문제 해결)
+# railway.toml - Railway 배포 설정 (SPA 라우팅 문제 해결)
 
 [build]
-# 빌드 명령어
+# 빌드 명령어 - 프론트엔드 빌드 후 서버 디렉토리로 복사
 builder = "NIXPACKS"
 
 [deploy]
@@ -24,3 +24,8 @@ restartPolicyMaxRetries = 3
 [deploy.service]
 # 포트 설정 (Railway가 자동으로 PORT 환경변수 제공)
 port = "$PORT"
+
+# Nixpacks 설정 (빌드 과정 최적화)
+[build.nixpacksConfig]
+# Node.js 버전 명시
+nodeVersion = "18"

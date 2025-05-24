@@ -10,10 +10,17 @@
     "preview": "vite preview",
     "start:server": "node server/index.js",
     "dev:host": "concurrently \"npm run dev\" \"npm run start:server\"",
-    "build:railway": "npm run build && npm run copy-build",
-    "copy-build": "cp -r dist/* server/public/",
+    
+   
+    "build:railway": "npm run build && npm run copy-build && npm run verify-build",
+    "copy-build": "cp -r dist/* server/public/ && echo 'Build files copied to server/public/'",
+    "verify-build": "ls -la server/public/ && echo 'Verifying index.html:' && ls -la server/public/index.html",
     "start": "npm run build:railway && node server/index.js",
-    "railway:start": "node server/index.js"
+    "railway:start": "node server/index.js",
+    
+    
+    "clean": "rm -rf dist server/public/*",
+    "build:local": "npm run clean && npm run build && npm run copy-build"
   },   
   "dependencies": {     
     "@types/react-router-dom": "^5.3.3",     

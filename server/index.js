@@ -1,4 +1,4 @@
-// server/index.js (Railway healthcheck 문제 해결)
+// server/index.js (SPA 라우팅 문제 해결)
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -30,6 +30,7 @@ const HOST = '0.0.0.0'; // Railway에서는 항상 0.0.0.0으로 바인딩
 
 logWithTimestamp(`환경: ${process.env.NODE_ENV || 'development'}`);
 logWithTimestamp(`포트: ${PORT}`);
+logWithTimestamp(`현재 디렉토리: ${__dirname}`);
 
 // CORS 설정
 const allowedOrigins = process.env.NODE_ENV === 'production' 
@@ -60,14 +61,34 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ===== 정적 파일 서빙 (프론트엔드) =====
-// 프로덕션 환경에서 빌드된 React 앱을 서빙
+// ===== 정적 파일 서빙 (프론트엔드) - 수정된 버전 =====
 if (process.env.NODE_ENV === 'production') {
   const publicPath = path.join(__dirname, 'public');
   logWithTimestamp(`정적 파일 경로: ${publicPath}`);
   
-  // 빌드된 정적 파일들을 서빙
-  app.use(express.static(publicPath));
+  // 정적 파일이 있는지 확인
+  try {
+    const fs = await import('fs');
+    const indexExists = fs.existsSync(path.join(publicPath, 'index.html'));
+    logWithTimestamp(`index.html 존재 여부: ${indexExists}`);
+    
+    if (indexExists) {
+      // 정적 파일 미들웨어 설정
+      app.use(express.static(publicPath, {
+        maxAge: '1d', // 1일 캐시
+        setHeaders: (res, path) => {
+          if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache'); // HTML은 캐시하지 않음
+          }
+        }
+      }));
+      logWithTimestamp('정적 파일 서빙 설정 완료');
+    } else {
+      logWithTimestamp('경고: index.html을 찾을 수 없습니다!');
+    }
+  } catch (error) {
+    logWithTimestamp('정적 파일 설정 오류:', error);
+  }
 }
 
 // 방 목록 (메모리 저장)
@@ -89,11 +110,10 @@ const getLocalIpAddress = () => {
 };
 
 // ===== API 엔드포인트 =====
-// Railway healthcheck 경로 (수정됨)
+// Railway healthcheck 경로
 app.get('/api/health', (req, res) => {
   logWithTimestamp('Health check 요청');
   
-  // 서버가 정상 작동하는지 확인
   const healthData = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -102,10 +122,10 @@ app.get('/api/health', (req, res) => {
     port: PORT,
     rooms: Object.keys(rooms).length,
     memory: process.memoryUsage(),
-    pid: process.pid
+    pid: process.pid,
+    publicPath: process.env.NODE_ENV === 'production' ? path.join(__dirname, 'public') : 'N/A'
   };
   
-  // 200 상태 코드와 함께 응답
   res.status(200).json(healthData);
 });
 
@@ -131,14 +151,31 @@ app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// 루트 경로 처리
+// 루트 경로 처리 - 수정된 버전
 app.get('/', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
-    // 프로덕션에서는 index.html 반환
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    res.sendFile(indexPath);
+    logWithTimestamp(`루트 경로 요청 - index.html 경로: ${indexPath}`);
+    
+    try {
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          logWithTimestamp('index.html 전송 오류:', err);
+          res.status(500).json({
+            error: 'index.html을 찾을 수 없습니다',
+            path: indexPath,
+            exists: require('fs').existsSync(indexPath)
+          });
+        }
+      });
+    } catch (error) {
+      logWithTimestamp('루트 경로 처리 오류:', error);
+      res.status(500).json({
+        error: '서버 오류',
+        message: error.message
+      });
+    }
   } else {
-    // 개발 환경에서는 JSON 응답
     res.json({
       message: 'Chill and Fresh 서버가 실행 중입니다!',
       status: 'online',
@@ -147,15 +184,36 @@ app.get('/', (req, res) => {
   }
 });
 
-// SPA 라우팅을 위한 fallback (프로덕션에서만)
+// SPA 라우팅을 위한 fallback - 수정된 버전
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res, next) => {
     // API 경로나 소켓 경로가 아닌 경우에만 index.html 반환
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
       return next();
     }
+    
     const indexPath = path.join(__dirname, 'public', 'index.html');
-    res.sendFile(indexPath);
+    logWithTimestamp(`SPA 라우팅 - 경로: ${req.path}, index.html 경로: ${indexPath}`);
+    
+    try {
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          logWithTimestamp('SPA 라우팅 오류:', err);
+          res.status(404).json({
+            error: 'Page not found',
+            requestedPath: req.path,
+            indexPath: indexPath,
+            exists: require('fs').existsSync(indexPath)
+          });
+        }
+      });
+    } catch (error) {
+      logWithTimestamp('SPA 라우팅 처리 오류:', error);
+      res.status(500).json({
+        error: '서버 오류',
+        message: error.message
+      });
+    }
   });
 }
 
@@ -448,6 +506,16 @@ server.listen(PORT, HOST, () => {
   
   if (process.env.NODE_ENV === 'production') {
     logWithTimestamp(`Railway URL: https://${process.env.RAILWAY_STATIC_URL || 'your-app'}.railway.app`);
+    
+    // 빌드 파일 확인
+    const publicPath = path.join(__dirname, 'public');
+    try {
+      const fs = require('fs');
+      const files = fs.readdirSync(publicPath);
+      logWithTimestamp(`public 디렉토리 파일들:`, files);
+    } catch (error) {
+      logWithTimestamp(`public 디렉토리 읽기 오류:`, error.message);
+    }
   } else {
     logWithTimestamp(`로컬 IP: http://${ipAddress}:${PORT}`);
   }
