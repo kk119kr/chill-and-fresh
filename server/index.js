@@ -1,4 +1,4 @@
-// server/index.js (SPA 라우팅 문제 해결)
+// server/index.js (ES 모듈 오류 수정 버전)
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -6,6 +6,7 @@ import cors from 'cors';
 import { networkInterfaces } from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // ES 모듈에서 __dirname 대체
 const __filename = fileURLToPath(import.meta.url);
@@ -68,7 +69,6 @@ if (process.env.NODE_ENV === 'production') {
   
   // 정적 파일이 있는지 확인
   try {
-    const fs = await import('fs');
     const indexExists = fs.existsSync(path.join(publicPath, 'index.html'));
     logWithTimestamp(`index.html 존재 여부: ${indexExists}`);
     
@@ -85,6 +85,17 @@ if (process.env.NODE_ENV === 'production') {
       logWithTimestamp('정적 파일 서빙 설정 완료');
     } else {
       logWithTimestamp('경고: index.html을 찾을 수 없습니다!');
+      // public 디렉토리 내용 확인
+      try {
+        if (fs.existsSync(publicPath)) {
+          const files = fs.readdirSync(publicPath);
+          logWithTimestamp('public 디렉토리 내용:', files);
+        } else {
+          logWithTimestamp('public 디렉토리가 존재하지 않습니다.');
+        }
+      } catch (dirErr) {
+        logWithTimestamp('디렉토리 읽기 오류:', dirErr.message);
+      }
     }
   } catch (error) {
     logWithTimestamp('정적 파일 설정 오류:', error);
@@ -123,7 +134,18 @@ app.get('/api/health', (req, res) => {
     rooms: Object.keys(rooms).length,
     memory: process.memoryUsage(),
     pid: process.pid,
-    publicPath: process.env.NODE_ENV === 'production' ? path.join(__dirname, 'public') : 'N/A'
+    publicPath: process.env.NODE_ENV === 'production' ? path.join(__dirname, 'public') : 'N/A',
+    buildFiles: (() => {
+      try {
+        const publicPath = path.join(__dirname, 'public');
+        if (fs.existsSync(publicPath)) {
+          return fs.readdirSync(publicPath);
+        }
+        return 'public directory not found';
+      } catch (err) {
+        return `Error reading public directory: ${err.message}`;
+      }
+    })()
   };
   
   res.status(200).json(healthData);
@@ -158,16 +180,33 @@ app.get('/', (req, res) => {
     logWithTimestamp(`루트 경로 요청 - index.html 경로: ${indexPath}`);
     
     try {
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          logWithTimestamp('index.html 전송 오류:', err);
-          res.status(500).json({
-            error: 'index.html을 찾을 수 없습니다',
-            path: indexPath,
-            exists: require('fs').existsSync(indexPath)
-          });
-        }
-      });
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            logWithTimestamp('index.html 전송 오류:', err);
+            res.status(500).json({
+              error: 'index.html 전송 중 오류 발생',
+              path: indexPath,
+              exists: fs.existsSync(indexPath)
+            });
+          }
+        });
+      } else {
+        logWithTimestamp('index.html 파일이 존재하지 않음');
+        res.status(404).json({
+          error: 'index.html을 찾을 수 없습니다',
+          path: indexPath,
+          exists: false,
+          publicDir: (() => {
+            try {
+              const publicPath = path.join(__dirname, 'public');
+              return fs.existsSync(publicPath) ? fs.readdirSync(publicPath) : 'public directory not found';
+            } catch (err) {
+              return `Error: ${err.message}`;
+            }
+          })()
+        });
+      }
     } catch (error) {
       logWithTimestamp('루트 경로 처리 오류:', error);
       res.status(500).json({
@@ -196,17 +235,25 @@ if (process.env.NODE_ENV === 'production') {
     logWithTimestamp(`SPA 라우팅 - 경로: ${req.path}, index.html 경로: ${indexPath}`);
     
     try {
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          logWithTimestamp('SPA 라우팅 오류:', err);
-          res.status(404).json({
-            error: 'Page not found',
-            requestedPath: req.path,
-            indexPath: indexPath,
-            exists: require('fs').existsSync(indexPath)
-          });
-        }
-      });
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath, (err) => {
+          if (err) {
+            logWithTimestamp('SPA 라우팅 오류:', err);
+            res.status(404).json({
+              error: 'Page not found',
+              requestedPath: req.path,
+              indexPath: indexPath,
+              exists: false
+            });
+          }
+        });
+      } else {
+        res.status(404).json({
+          error: 'Application not built',
+          message: 'Frontend build files not found',
+          requestedPath: req.path
+        });
+      }
     } catch (error) {
       logWithTimestamp('SPA 라우팅 처리 오류:', error);
       res.status(500).json({
@@ -510,7 +557,6 @@ server.listen(PORT, HOST, () => {
     // 빌드 파일 확인
     const publicPath = path.join(__dirname, 'public');
     try {
-      const fs = require('fs');
       const files = fs.readdirSync(publicPath);
       logWithTimestamp(`public 디렉토리 파일들:`, files);
     } catch (error) {
