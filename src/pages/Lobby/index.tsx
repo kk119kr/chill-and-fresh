@@ -161,15 +161,17 @@ const Lobby: React.FC = () => {
   }, [waitingForGame, isJoining]);
   
   // 컴포넌트 언마운트 시 소켓 연결 해제 - 수정된 버전
-  useEffect(() => {
-    return () => {
-      // 게임이 시작되지 않은 상태에서 페이지를 나가는 경우에만 연결 해제
-      if (!waitingForGame || gameState.status === 'waiting') {
-        console.log('컴포넌트 언마운트 - 소켓 연결 해제');
-        socketService.disconnect();
-      }
-    };
-  }, [waitingForGame, gameState.status]);
+useEffect(() => {
+  return () => {
+    // 오직 게임이 시작되지 않은 상태에서만 연결 해제
+    if (gameState.status === 'waiting') {
+      console.log('컴포넌트 언마운트 - 소켓 연결 해제');
+      socketService.disconnect();
+    } else {
+      console.log('게임 진행 중 - 소켓 연결 유지');
+    }
+  };
+}, [gameState.status]); // waitingForGame 의존성 제거
 
   // 나가기 처리
   const handleLeave = () => {
