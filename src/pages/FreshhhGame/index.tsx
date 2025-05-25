@@ -1,4 +1,4 @@
-// src/pages/FreshhhGame/index.tsx (Ready 상태 관리 수정)
+// src/pages/FreshhhGame/index.tsx (버튼 색상 변화 수정)
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,7 +33,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   const [currentRound, setCurrentRound] = useState(1);
   const [countdown, setCountdown] = useState(3);
   
-  // 준비 상태 - 수정: 참가자별 Ready 상태 추적
+  // 준비 상태
   const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
   const [isReady, setIsReady] = useState(false);
   
@@ -50,10 +50,9 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 최종 결과
   const [finalResults, setFinalResults] = useState<PlayerResult[]>([]);
 
-  // 초기화 - 수정: 자동 Ready 제거
+  // 초기화
   useEffect(() => {
     initializeScores();
-    // 기존의 자동 Ready 로직 제거
   }, [participants, currentUserId, isHost]);
 
   const initializeScores = () => {
@@ -64,7 +63,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     setAllScores(scores);
   };
 
-  // Ready 버튼 처리 - 수정: 소켓 통신 추가
+  // Ready 버튼 처리
   const handleReady = () => {
     if (isReady) return;
     
@@ -75,22 +74,15 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     
     console.log(`Player ${currentUserId} is ready`);
     
-    // 실제 프로덕션에서는 소켓을 통해 다른 플레이어들에게 알림
-    // socketService.sendMessage({
-    //   type: 'PLAYER_READY',
-    //   payload: { playerId: currentUserId }
-    // });
-    
     if (newReadyPlayers.size === participants.length) {
       console.log('All players ready');
     }
   };
 
-  // Start 버튼 처리 - 수정: Ready 상태 검증 강화
+  // Start 버튼 처리
   const handleStart = () => {
     if (!isHost) return;
     
-    // 모든 참가자가 Ready 상태인지 확인
     const allPlayersReady = participants.length > 0 && readyPlayers.size === participants.length;
     
     if (!allPlayersReady) {
@@ -217,7 +209,6 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
       if (currentRound < 3) {
         setCurrentRound(prev => prev + 1);
         setGamePhase('waiting');
-        // 다음 라운드를 위해 Ready 상태 초기화
         setReadyPlayers(new Set());
         setIsReady(false);
       } else {
@@ -257,16 +248,20 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     initializeScores();
   };
 
-  // 버튼 색상 계산
+  // 버튼 색상 계산 - 수정됨
   const getButtonColor = () => {
     if (gamePhase === 'playing') {
-      const red = Math.floor(colorProgress * 2.55);
-      return `rgb(${red}, ${255 - red}, ${255 - red})`;
+      if (isExploded) {
+        return '#ff0000'; // 폭발 시 빨간색
+      }
+      // 0-100 progress를 흰색에서 빨간색으로 부드럽게 변환
+      const intensity = Math.floor(colorProgress * 2.55); // 0-255
+      return `rgb(${255}, ${255 - intensity}, ${255 - intensity})`;
     }
-    return 'white';
+    return '#ffffff'; // 기본 흰색
   };
 
-  // 버튼 텍스트 - 수정: Ready 상태 표시 개선
+  // 버튼 텍스트
   const getButtonText = () => {
     if (gamePhase === 'waiting') {
       if (isHost) {
@@ -287,11 +282,10 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     return '';
   };
 
-  // 버튼 활성화 상태 - 수정: Ready 상태 검증 강화
+  // 버튼 활성화 상태
   const isButtonActive = () => {
     if (gamePhase === 'waiting') {
       if (isHost) {
-        // 모든 플레이어가 Ready 상태이고, 최소 1명 이상일 때만 활성화
         return participants.length > 0 && readyPlayers.size === participants.length;
       } else {
         return !isReady;
@@ -439,41 +433,38 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
         )}
       </AnimatePresence>
 
-      {/* 메인 게임 버튼 - QR 코드와 동일한 크기 (240px)로 모핑 효과 */}
+      {/* 메인 게임 버튼 - 단순하게 수정 */}
       {gamePhase !== 'gameEnd' && (
-        <motion.div
+        <motion.button
           layout
           layoutId="main-game-element"
-          initial={{ borderRadius: '0%' }}
-          animate={{ borderRadius: '50%' }}
-          transition={{ borderRadius: { duration: 0.3 } }}
-          className="relative w-[240px] h-[240px] overflow-hidden border-2 border-black flex items-center justify-center"
-          style={{ backgroundColor: isExploded ? '#f00' : getButtonColor() }}
+          className="w-[240px] h-[240px] rounded-full border-2 border-black flex items-center justify-center
+                     transition-colors duration-100 ease-linear relative overflow-hidden"
+          style={{
+            backgroundColor: getButtonColor()
+          }}
+          onClick={isButtonActive() ? handleButtonClick : undefined}
+          whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
+          whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
+          animate={{
+            scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1
+          }}
+          transition={{
+            scale: { duration: isExploded ? 0.5 : 0.2 },
+            backgroundColor: { duration: 0.1 }
+          }}
+          disabled={!isButtonActive()}
         >
-          <motion.button
-            className="w-full h-full flex items-center justify-center"
-            whileHover={isButtonActive() ? { scale: 1.05 } : undefined}
-            whileTap={isButtonActive() ? { scale: 0.95 } : undefined}
-            onClick={isButtonActive() ? handleButtonClick : undefined}
-            animate={{
-              scale: isExploded ? [1, 1.1, 0.9, 1] : hasPressed ? [1, 0.95, 1] : 1
-            }}
-            transition={{
-              scale: { duration: isExploded ? 0.5 : 0.2 }
-            }}
-            disabled={!isButtonActive()}
+          <span
+            className={`
+              font-mono font-black text-3xl tracking-widest uppercase
+              ${colorProgress > 50 ? 'text-white' : 'text-black'}
+              ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}
+            `}
           >
-            <span
-              className={`
-                font-mono font-black text-3xl tracking-widest uppercase
-                ${colorProgress > 50 ? 'text-white' : 'text-black'}
-                ${!isButtonActive() && gamePhase === 'waiting' ? 'opacity-50' : ''}
-              `}
-            >
-              {getButtonText()}
-            </span>
-          </motion.button>
-        </motion.div>
+            {getButtonText()}
+          </span>
+        </motion.button>
       )}
 
       {/* 최종 결과 화면 */}
