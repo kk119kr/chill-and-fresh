@@ -293,70 +293,62 @@ io.on('connection', (socket) => {
   
   // 호스트인 경우 방 생성 또는 호스트 복구
   if (isHost === 'true') {
-    if (!rooms[roomId]) {
-      rooms[roomId] = {
-        id: roomId,
-        hostId: socket.id,
-        participants: [{
-          id: `host_${socket.id}`,
-          socketId: socket.id,
-          nickname: nickname || '호스트',
-          isHost: true,
-        }],
-        gameState: {
-          status: 'waiting',
-          type: null,
-          currentRound: 0,
-          roundsTotal: 3,
-          scores: {},
-          winner: null,
-        },
-      };
-      logWithTimestamp(`방 생성됨: ${roomId}, 호스트: ${socket.id}`);
-    } else {
-      // 기존 방이 있는 경우 호스트 정보 업데이트
-      rooms[roomId].hostId = socket.id;
-      const existingHost = rooms[roomId].participants.find(p => p.isHost);
-      if (existingHost) {
-        existingHost.socketId = socket.id;
-      } else {
-        rooms[roomId].participants.unshift({
-          id: `host_${socket.id}`,
-          socketId: socket.id,
-          nickname: nickname || '호스트',
-          isHost: true,
-        });
-      }
-      logWithTimestamp(`기존 방의 호스트 업데이트: ${roomId}, 새 호스트: ${socket.id}`);
-    }
-    
-    // 호스트에게 방 생성 확인 메시지
-    socket.emit('message', {
-      type: 'ROOM_CREATED',
-      sender: 'server',
-      timestamp: Date.now(),
-      payload: {
-        roomId: roomId,
-        hostId: socket.id
-      }
-    });
-
-    // 참가자 목록 업데이트 전송
-    const updateMessage = {
-      type: 'PLAYER_LIST_UPDATE',
-      sender: 'server',
-      timestamp: Date.now(),
-      payload: {
-        participants: rooms[roomId].participants.map(p => ({
-          id: p.id,
-          nickname: p.nickname,
-          isHost: p.isHost,
-        })),
+  if (!rooms[roomId]) {
+    rooms[roomId] = {
+      id: roomId,
+      hostId: socket.id,
+      participants: [{
+        id: `host_${socket.id}`,
+        socketId: socket.id,
+        nickname: nickname || '호스트',
+        number: 1, // 번호 추가
+        isHost: true,
+      }],
+      gameState: {
+        status: 'waiting',
+        type: null,
+        currentRound: 0,
+        roundsTotal: 3,
+        scores: {},
+        winner: null,
       },
     };
-    
-    io.to(roomId).emit('message', updateMessage);
+    logWithTimestamp(`방 생성됨: ${roomId}, 호스트: ${socket.id}`);
+  } else {
+    // 기존 방이 있는 경우 호스트 정보 업데이트
+    rooms[roomId].hostId = socket.id;
+    const existingHost = rooms[roomId].participants.find(p => p.isHost);
+    if (existingHost) {
+      existingHost.socketId = socket.id;
+    } else {
+      rooms[roomId].participants.unshift({
+        id: `host_${socket.id}`,
+        socketId: socket.id,
+        nickname: nickname || '호스트',
+        number: 1, // 번호 추가
+        isHost: true,
+      });
+    }
+    logWithTimestamp(`기존 방의 호스트 업데이트: ${roomId}, 새 호스트: ${socket.id}`);
   }
+  
+  // 참가자 목록 업데이트 전송 시에도 number 포함
+  const updateMessage = {
+    type: 'PLAYER_LIST_UPDATE',
+    sender: 'server',
+    timestamp: Date.now(),
+    payload: {
+      participants: rooms[roomId].participants.map(p => ({
+        id: p.id,
+        nickname: p.nickname,
+        number: p.number, // 번호 포함
+        isHost: p.isHost,
+      })),
+    },
+  };
+  
+  io.to(roomId).emit('message', updateMessage);
+}
 
   // 메시지 수신 처리
   socket.on('message', (message) => {
@@ -447,11 +439,13 @@ function handleJoinRequest(socket, room, message) {
   }
   
   const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const participantNumber = room.participants.length + 1; // 번호 계산
   
   const newParticipant = {
     id: participantId,
     socketId: socket.id,
     nickname,
+    number: participantNumber, // 번호 추가
     isHost: false,
   };
   
@@ -468,6 +462,7 @@ function handleJoinRequest(socket, room, message) {
       participant: {
         id: newParticipant.id,
         nickname: newParticipant.nickname,
+        number: newParticipant.number, // 번호 포함
         isHost: newParticipant.isHost,
       },
       gameState: room.gameState,
@@ -485,6 +480,7 @@ function handleJoinRequest(socket, room, message) {
       participants: room.participants.map(p => ({
         id: p.id,
         nickname: p.nickname,
+        number: p.number, // 번호 포함
         isHost: p.isHost,
       })),
     },
