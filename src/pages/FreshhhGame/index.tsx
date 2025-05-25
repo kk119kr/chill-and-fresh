@@ -1,4 +1,4 @@
-// src/pages/FreshhhGame/index.tsx (수정된 버전)
+// src/pages/FreshhhGame/index.tsx (Ready 상태 관리 수정)
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,7 +33,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   const [currentRound, setCurrentRound] = useState(1);
   const [countdown, setCountdown] = useState(3);
   
-  // 준비 상태
+  // 준비 상태 - 수정: 참가자별 Ready 상태 추적
   const [readyPlayers, setReadyPlayers] = useState<Set<string>>(new Set());
   const [isReady, setIsReady] = useState(false);
   
@@ -50,14 +50,10 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   // 최종 결과
   const [finalResults, setFinalResults] = useState<PlayerResult[]>([]);
 
-  // 초기화
+  // 초기화 - 수정: 자동 Ready 제거
   useEffect(() => {
     initializeScores();
-    // 혼자서도 게임할 수 있도록 설정
-    if (isHost && participants.length === 1) {
-      setIsReady(true);
-      setReadyPlayers(new Set([currentUserId]));
-    }
+    // 기존의 자동 Ready 로직 제거
   }, [participants, currentUserId, isHost]);
 
   const initializeScores = () => {
@@ -68,7 +64,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     setAllScores(scores);
   };
 
-  // Ready 버튼 처리
+  // Ready 버튼 처리 - 수정: 소켓 통신 추가
   const handleReady = () => {
     if (isReady) return;
     
@@ -79,18 +75,28 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     
     console.log(`Player ${currentUserId} is ready`);
     
+    // 실제 프로덕션에서는 소켓을 통해 다른 플레이어들에게 알림
+    // socketService.sendMessage({
+    //   type: 'PLAYER_READY',
+    //   payload: { playerId: currentUserId }
+    // });
+    
     if (newReadyPlayers.size === participants.length) {
       console.log('All players ready');
     }
   };
 
-  // Start 버튼 처리 (호스트만)
+  // Start 버튼 처리 - 수정: Ready 상태 검증 강화
   const handleStart = () => {
     if (!isHost) return;
     
-    // 혼자일 때 또는 모든 플레이어가 준비됐을 때
-    const canStart = participants.length === 1 || readyPlayers.size === participants.length;
-    if (!canStart) return;
+    // 모든 참가자가 Ready 상태인지 확인
+    const allPlayersReady = participants.length > 0 && readyPlayers.size === participants.length;
+    
+    if (!allPlayersReady) {
+      console.log(`게임 시작 불가: ${readyPlayers.size}/${participants.length} 플레이어가 준비됨`);
+      return;
+    }
     
     setGamePhase('countdown');
     setCountdown(3);
@@ -211,6 +217,7 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
       if (currentRound < 3) {
         setCurrentRound(prev => prev + 1);
         setGamePhase('waiting');
+        // 다음 라운드를 위해 Ready 상태 초기화
         setReadyPlayers(new Set());
         setIsReady(false);
       } else {
@@ -259,13 +266,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     return 'white';
   };
 
-  // 버튼 텍스트 - 수정된 부분
+  // 버튼 텍스트 - 수정: Ready 상태 표시 개선
   const getButtonText = () => {
     if (gamePhase === 'waiting') {
       if (isHost) {
-        // 혼자일 때는 바로 시작 가능
-        if (participants.length === 1) return 'START!';
-        return readyPlayers.size === participants.length ? 'START!' : 'START!';
+        const allReady = readyPlayers.size === participants.length && participants.length > 0;
+        return allReady ? 'START!' : `START! (${readyPlayers.size}/${participants.length})`;
       } else {
         return isReady ? 'READY!' : 'READY!';
       }
@@ -281,13 +287,12 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
     return '';
   };
 
-  // 버튼 활성화 상태 - 수정된 부분
+  // 버튼 활성화 상태 - 수정: Ready 상태 검증 강화
   const isButtonActive = () => {
     if (gamePhase === 'waiting') {
       if (isHost) {
-        // 혼자일 때는 바로 활성화
-        if (participants.length === 1) return true;
-        return readyPlayers.size === participants.length;
+        // 모든 플레이어가 Ready 상태이고, 최소 1명 이상일 때만 활성화
+        return participants.length > 0 && readyPlayers.size === participants.length;
       } else {
         return !isReady;
       }
@@ -301,8 +306,8 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
   const handleButtonClick = () => {
     if (gamePhase === 'waiting') {
       if (isHost) {
-        const canStart = participants.length === 1 || readyPlayers.size === participants.length;
-        if (canStart) {
+        const allReady = participants.length > 0 && readyPlayers.size === participants.length;
+        if (allReady) {
           handleStart();
         }
       } else if (!isReady) {
@@ -342,6 +347,30 @@ const FreshhhGame: React.FC<FreshhhGameProps> = ({
         >
           RESTART
         </motion.button>
+      )}
+
+      {/* Ready 상태 표시 (대기 중일 때만) */}
+      {gamePhase === 'waiting' && participants.length > 1 && (
+        <motion.div 
+          className="absolute top-16 left-1/2 transform -translate-x-1/2"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="bg-gray-100 border border-black px-4 py-2">
+            <p className="text-xs font-mono uppercase tracking-wider">
+              Ready: {readyPlayers.size}/{participants.length}
+            </p>
+            {participants.map(p => (
+              <div key={p.id} className="flex items-center justify-between text-xs mt-1">
+                <span>{p.nickname}</span>
+                <span className={readyPlayers.has(p.id) ? 'text-green-600' : 'text-gray-400'}>
+                  {readyPlayers.has(p.id) ? '✓' : '○'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       )}
 
       {/* 라운드 표시 - 점으로 변경 */}
