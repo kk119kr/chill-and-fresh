@@ -352,7 +352,7 @@ const Lobby: React.FC = () => {
         </motion.div>
       )}
       
-      <AnimatePresence mode="wait">
+<AnimatePresence mode="wait">
         {joinMethod === 'scan' ? (
           <motion.div
             key="qr-scanner"
@@ -402,14 +402,15 @@ const Lobby: React.FC = () => {
               label="방 ID"
               value={roomId}
               onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-              placeholder="방 ID를 입력하세요"
+              placeholder="방 ID를 입력하세요 (예: ABC123)"
               fullWidth
               className="mb-6"
+              maxLength={6}
             />
             
             <Button
               onClick={() => handleJoinRoom()}
-              disabled={!roomId.trim() || isJoining}
+              disabled={!roomId.trim() || roomId.length !== 6 || isJoining}
               fullWidth
               size="large"
               isLoading={isJoining}

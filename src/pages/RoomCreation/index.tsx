@@ -201,10 +201,25 @@ const RoomCreation: React.FC = () => {
           </AnimatePresence>
         </motion.div>
         
-        {/* 참가자 목록 - 개선된 버전 */}
+ {/* 방 ID 표시 */}
         {roomId && !startingGame && (
           <motion.div 
-            className="mt-8 w-full max-w-md"
+            className="mt-6 w-full max-w-md text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.4 }}
+          >
+            <div className="bg-gray-50 border-2 border-black p-4 mb-6">
+              <p className="text-xs font-mono uppercase tracking-widest mb-2 text-gray-500">방 ID</p>
+              <p className="text-2xl font-black tracking-widest">{roomId}</p>
+            </div>
+          </motion.div>
+        )}
+
+ {/* 참가자 목록 - 개선된 버전 */}
+        {roomId && !startingGame && (
+          <motion.div 
+            className="mt-4 w-full max-w-md"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.0, duration: 0.4 }}
