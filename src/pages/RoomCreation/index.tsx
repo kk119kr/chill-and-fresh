@@ -216,7 +216,7 @@ const RoomCreation: React.FC = () => {
           </motion.div>
         )}
 
- {/* 참가자 목록 - 개선된 버전 */}
+        {/* 참가자 목록 - 개선된 버전 */}
         {roomId && !startingGame && (
           <motion.div 
             className="mt-4 w-full max-w-md"
