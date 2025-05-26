@@ -69,10 +69,10 @@ const RoomCreation: React.FC = () => {
       return;
     }
     
-    if (participants.length < 1) {
-      setError('최소 1명의 참가자가 필요합니다.');
-      return;
-    }
+if (participants.length < 2) { // 호스트 포함 최소 2명
+  setError('최소 2명의 참가자가 필요합니다.');
+  return;
+}
     
     setStartingGame(true);
     

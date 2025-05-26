@@ -178,15 +178,7 @@ io.on('connection', (socket) => {
         id: roomId,
         hostId: socket.id,
         participants: [],
-        readyPlayers: new Set(), // Ready 상태 관리 추가
-        gameState: {
-          status: 'waiting',
-          type: null,
-          currentRound: 0,
-          roundsTotal: 3,
-          scores: {},
-          winner: null,
-        },
+        
       };
       
       // 호스트 참가자 추가
@@ -196,7 +188,6 @@ io.on('connection', (socket) => {
         nickname: nickname || '호스트',
         number: 1,
         isHost: true,
-        isReady: true, // 호스트는 항상 준비됨
       };
       
       rooms[roomId].participants.push(hostParticipant);
@@ -209,7 +200,7 @@ io.on('connection', (socket) => {
       const existingHost = rooms[roomId].participants.find(p => p.isHost);
       if (existingHost) {
         existingHost.socketId = socket.id;
-        rooms[roomId].readyPlayers.add(existingHost.id); // 호스트는 항상 준비됨
+        
       }
       logWithTimestamp(`호스트 재연결: ${roomId}`);
     }
@@ -235,11 +226,7 @@ io.on('connection', (socket) => {
       case 'JOIN_REQUEST':
         handleJoinRequest(socket, room, message);
         break;
-      case 'READY_STATUS':
-        handleReadyStatus(socket, room, message);
-        break;
-      case 'GAME_START':
-        handleGameStart(socket, room, message);
+      
         break;
       case 'TAP_EVENT':
         handleTapEvent(socket, room, message);
@@ -275,11 +262,9 @@ function sendParticipantUpdate(roomId) {
         nickname: p.nickname,
         number: p.number,
         isHost: p.isHost,
-        isReady: room.readyPlayers.has(p.id),
-      })),
-      readyCount: room.readyPlayers.size,
-      totalCount: room.participants.length,
-      canStart: room.readyPlayers.size === room.participants.length && room.participants.length > 0,
+isReady: false, // 로비에서는 준비 상태 없음
+})),
+      
     },
   };
   
@@ -311,7 +296,7 @@ function handleJoinRequest(socket, room, message) {
     nickname: autoNickname,
     number: participantNumber,
     isHost: false,
-    isReady: false, // 초기에는 준비 안됨
+    isReady: false, // 로비에서는 준비 상태 없음
   };
   
   room.participants.push(newParticipant);
@@ -340,26 +325,7 @@ function handleJoinRequest(socket, room, message) {
   sendParticipantUpdate(room.id);
 }
 
-function handleReadyStatus(socket, room, message) {
-  const participant = room.participants.find(p => p.socketId === socket.id);
-  if (!participant) {
-    socket.emit('error', { message: '참가자가 아닙니다.' });
-    return;
-  }
-  
-  const isReady = message.payload?.isReady;
-  
-  if (isReady) {
-    room.readyPlayers.add(participant.id);
-    logWithTimestamp(`${participant.nickname} 준비 완료`);
-  } else {
-    room.readyPlayers.delete(participant.id);
-    logWithTimestamp(`${participant.nickname} 준비 취소`);
-  }
-  
-  // 참가자 목록 업데이트 전송
-  sendParticipantUpdate(room.id);
-}
+
 
 function handleGameStart(socket, room, message) {
   const { gameType } = message.payload;
@@ -375,12 +341,10 @@ function handleGameStart(socket, room, message) {
   }
   
   // 모든 참가자가 준비되었는지 확인
-  if (room.readyPlayers.size !== room.participants.length) {
-    socket.emit('error', { 
-      message: `모든 참가자가 준비되지 않았습니다. (${room.readyPlayers.size}/${room.participants.length})`
-    });
-    return;
-  }
+if (room.participants.length < 1) {
+  socket.emit('error', { message: '참가자가 없습니다.' });
+  return;
+}
   
   room.gameState = {
     ...room.gameState,
@@ -428,7 +392,7 @@ function handleDisconnect(socketId, roomId) {
   if (participantIndex !== -1) {
     const removedParticipant = room.participants[participantIndex];
     room.participants.splice(participantIndex, 1);
-    room.readyPlayers.delete(removedParticipant.id);
+    
     
     logWithTimestamp(`참가자 제거: ${removedParticipant.nickname} (${socketId})`);
     
