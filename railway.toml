@@ -4,7 +4,7 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "npm run railway:start"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
@@ -18,7 +18,3 @@ NODE_ENV = "production"
 [build.nixpacksConfig]
 # Node.js 버전 명시
 nodeVersion = "18"
-
-# 빌드 과정 커스터마이징
-[build.nixpacksConfig.build]
-buildCommand = "npm install && npm run build"

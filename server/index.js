@@ -1,4 +1,4 @@
-// server/index.js (참가자 관리 및 Ready 상태 수정)
+// server/index.js (Railway 배포 오류 수정)
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -24,9 +24,11 @@ const server = createServer(app);
 const PORT = parseInt(process.env.PORT) || 3001;
 const HOST = '0.0.0.0';
 
+// Railway URL 수정
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? [
       process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}` : null,
+      'https://chill-and-fresh-production.up.railway.app',
       'https://*.railway.app'
     ].filter(Boolean)
   : ["http://localhost:5173", "http://localhost:3000"];
@@ -178,7 +180,15 @@ io.on('connection', (socket) => {
         id: roomId,
         hostId: socket.id,
         participants: [],
-        
+        readyPlayers: new Set(), // 수정: Set 초기화
+        gameState: { // 수정: gameState 초기화
+          status: 'waiting',
+          type: null,
+          currentRound: 0,
+          roundsTotal: 3,
+          scores: {},
+          winner: null
+        }
       };
       
       // 호스트 참가자 추가
@@ -200,7 +210,6 @@ io.on('connection', (socket) => {
       const existingHost = rooms[roomId].participants.find(p => p.isHost);
       if (existingHost) {
         existingHost.socketId = socket.id;
-        
       }
       logWithTimestamp(`호스트 재연결: ${roomId}`);
     }
@@ -211,35 +220,45 @@ io.on('connection', (socket) => {
   
   // 메시지 처리
   socket.on('message', (message) => {
-    if (!message || !message.type) {
-      logWithTimestamp('유효하지 않은 메시지:', message);
-      return;
-    }
-    
-    const room = rooms[roomId];
-    if (!room) {
-      socket.emit('error', { message: '방을 찾을 수 없습니다.' });
-      return;
-    }
-    
-    switch (message.type) {
-      case 'JOIN_REQUEST':
-        handleJoinRequest(socket, room, message);
-        break;
+    try {
+      if (!message || !message.type) {
+        logWithTimestamp('유효하지 않은 메시지:', message);
+        return;
+      }
       
-        break;
-      case 'TAP_EVENT':
-        handleTapEvent(socket, room, message);
-        break;
-      default:
-        forwardMessageToRoom(room.id, message);
+      const room = rooms[roomId];
+      if (!room) {
+        socket.emit('error', { message: '방을 찾을 수 없습니다.' });
+        return;
+      }
+      
+      switch (message.type) {
+        case 'JOIN_REQUEST':
+          handleJoinRequest(socket, room, message);
+          break;
+        case 'GAME_START':
+          handleGameStart(socket, room, message);
+          break;
+        case 'TAP_EVENT':
+          handleTapEvent(socket, room, message);
+          break;
+        default:
+          forwardMessageToRoom(room.id, message);
+      }
+    } catch (error) {
+      logWithTimestamp('메시지 처리 오류:', error.message);
+      socket.emit('error', { message: '메시지 처리 중 오류가 발생했습니다.' });
     }
   });
   
   // 연결 해제 처리
   socket.on('disconnect', (reason) => {
     logWithTimestamp(`소켓 연결 해제: ${socket.id}, 이유: ${reason}`);
-    handleDisconnect(socket.id, roomId);
+    try {
+      handleDisconnect(socket.id, roomId);
+    } catch (error) {
+      logWithTimestamp('연결 해제 처리 오류:', error.message);
+    }
   });
 });
 
@@ -249,167 +268,205 @@ function generateParticipantNickname(participantCount) {
 }
 
 function sendParticipantUpdate(roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-  
-  const updateMessage = {
-    type: 'PLAYER_LIST_UPDATE',
-    sender: 'server',
-    timestamp: Date.now(),
-    payload: {
-      participants: room.participants.map(p => ({
-        id: p.id,
-        nickname: p.nickname,
-        number: p.number,
-        isHost: p.isHost,
-isReady: false, // 로비에서는 준비 상태 없음
-})),
-      
-    },
-  };
-  
-  io.to(roomId).emit('message', updateMessage);
-  logWithTimestamp(`참가자 목록 업데이트 전송: ${roomId}`, {
-    participants: room.participants.length,
-    ready: room.readyPlayers.size,
-    canStart: updateMessage.payload.canStart
-  });
+  try {
+    const room = rooms[roomId];
+    if (!room) return;
+    
+    const updateMessage = {
+      type: 'PLAYER_LIST_UPDATE',
+      sender: 'server',
+      timestamp: Date.now(),
+      payload: {
+        participants: room.participants.map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          number: p.number,
+          isHost: p.isHost,
+          isReady: false, // 로비에서는 준비 상태 없음
+        })),
+      },
+    };
+    
+    io.to(roomId).emit('message', updateMessage);
+    logWithTimestamp(`참가자 목록 업데이트 전송: ${roomId}`, {
+      participants: room.participants.length,
+      ready: room.readyPlayers ? room.readyPlayers.size : 0,
+    });
+  } catch (error) {
+    logWithTimestamp('참가자 목록 업데이트 오류:', error.message);
+  }
 }
 
 function handleJoinRequest(socket, room, message) {
-  // 이미 참가했는지 확인
-  if (room.participants.some(p => p.socketId === socket.id)) {
-    logWithTimestamp('이미 참가한 소켓:', socket.id);
-    return;
-  }
-  
-  // 자동 닉네임 생성
-  const participantCount = room.participants.filter(p => !p.isHost).length + 1;
-  const autoNickname = generateParticipantNickname(participantCount);
-  const participantNumber = room.participants.length + 1;
-  
-  const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  
-  const newParticipant = {
-    id: participantId,
-    socketId: socket.id,
-    nickname: autoNickname,
-    number: participantNumber,
-    isHost: false,
-    isReady: false, // 로비에서는 준비 상태 없음
-  };
-  
-  room.participants.push(newParticipant);
-  logWithTimestamp(`참가자 추가: ${autoNickname} (${socket.id}), 총 참가자: ${room.participants.length}`);
-  
-  // 참가 확인 메시지
-  const confirmMessage = {
-    type: 'JOIN_CONFIRMED',
-    sender: 'server',
-    timestamp: Date.now(),
-    payload: {
-      participant: {
-        id: newParticipant.id,
-        nickname: newParticipant.nickname,
-        number: newParticipant.number,
-        isHost: newParticipant.isHost,
-        isReady: newParticipant.isReady,
+  try {
+    // 이미 참가했는지 확인
+    if (room.participants.some(p => p.socketId === socket.id)) {
+      logWithTimestamp('이미 참가한 소켓:', socket.id);
+      return;
+    }
+    
+    // 자동 닉네임 생성
+    const participantCount = room.participants.filter(p => !p.isHost).length + 1;
+    const autoNickname = generateParticipantNickname(participantCount);
+    const participantNumber = room.participants.length + 1;
+    
+    const participantId = `participant_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    const newParticipant = {
+      id: participantId,
+      socketId: socket.id,
+      nickname: autoNickname,
+      number: participantNumber,
+      isHost: false,
+      isReady: false, // 로비에서는 준비 상태 없음
+    };
+    
+    room.participants.push(newParticipant);
+    logWithTimestamp(`참가자 추가: ${autoNickname} (${socket.id}), 총 참가자: ${room.participants.length}`);
+    
+    // 참가 확인 메시지
+    const confirmMessage = {
+      type: 'JOIN_CONFIRMED',
+      sender: 'server',
+      timestamp: Date.now(),
+      payload: {
+        participant: {
+          id: newParticipant.id,
+          nickname: newParticipant.nickname,
+          number: newParticipant.number,
+          isHost: newParticipant.isHost,
+          isReady: newParticipant.isReady,
+        },
+        gameState: room.gameState,
       },
-      gameState: room.gameState,
-    },
-  };
-  
-  socket.emit('message', confirmMessage);
-  
-  // 모든 클라이언트에게 참가자 목록 업데이트
-  sendParticipantUpdate(room.id);
+    };
+    
+    socket.emit('message', confirmMessage);
+    
+    // 모든 클라이언트에게 참가자 목록 업데이트
+    sendParticipantUpdate(room.id);
+  } catch (error) {
+    logWithTimestamp('참가 요청 처리 오류:', error.message);
+    socket.emit('error', { message: '참가 처리 중 오류가 발생했습니다.' });
+  }
 }
-
-
 
 function handleGameStart(socket, room, message) {
-  const { gameType } = message.payload;
-  
-  if (!gameType) {
-    socket.emit('error', { message: '게임 타입이 필요합니다.' });
-    return;
+  try {
+    const { gameType } = message.payload;
+    
+    if (!gameType) {
+      socket.emit('error', { message: '게임 타입이 필요합니다.' });
+      return;
+    }
+    
+    if (socket.id !== room.hostId) {
+      socket.emit('error', { message: '호스트만 게임을 시작할 수 있습니다.' });
+      return;
+    }
+    
+    // 최소 참가자 수 확인
+    if (room.participants.length < 1) {
+      socket.emit('error', { message: '참가자가 없습니다.' });
+      return;
+    }
+    
+    // gameState 확인 및 초기화
+    if (!room.gameState) {
+      room.gameState = {
+        status: 'waiting',
+        type: null,
+        currentRound: 0,
+        roundsTotal: 3,
+        scores: {},
+        winner: null
+      };
+    }
+    
+    room.gameState = {
+      ...room.gameState,
+      status: 'running',
+      type: gameType,
+      currentRound: 1,
+      scores: {},
+    };
+    
+    room.participants.forEach(p => {
+      room.gameState.scores[p.id] = 0;
+    });
+    
+    const gameStartMessage = {
+      type: 'GAME_START',
+      sender: 'server',
+      timestamp: Date.now(),
+      payload: {
+        gameType,
+        gameState: room.gameState,
+      },
+    };
+    
+    forwardMessageToRoom(room.id, gameStartMessage);
+    logWithTimestamp(`게임 시작: ${gameType}, 방: ${room.id}`);
+  } catch (error) {
+    logWithTimestamp('게임 시작 처리 오류:', error.message);
+    socket.emit('error', { message: '게임 시작 중 오류가 발생했습니다.' });
   }
-  
-  if (socket.id !== room.hostId) {
-    socket.emit('error', { message: '호스트만 게임을 시작할 수 있습니다.' });
-    return;
-  }
-  
-  // 모든 참가자가 준비되었는지 확인
-if (room.participants.length < 1) {
-  socket.emit('error', { message: '참가자가 없습니다.' });
-  return;
-}
-  
-  room.gameState = {
-    ...room.gameState,
-    status: 'running',
-    type: gameType,
-    currentRound: 1,
-    scores: {},
-  };
-  
-  room.participants.forEach(p => {
-    room.gameState.scores[p.id] = 0;
-  });
-  
-  const gameStartMessage = {
-    type: 'GAME_START',
-    sender: 'server',
-    timestamp: Date.now(),
-    payload: {
-      gameType,
-      gameState: room.gameState,
-    },
-  };
-  
-  forwardMessageToRoom(room.id, gameStartMessage);
-  logWithTimestamp(`게임 시작: ${gameType}, 방: ${room.id}`);
 }
 
 function handleTapEvent(socket, room, message) {
-  const participant = room.participants.find(p => p.socketId === socket.id);
-  if (!participant) {
-    socket.emit('error', { message: '참가자가 아닙니다.' });
-    return;
+  try {
+    const participant = room.participants.find(p => p.socketId === socket.id);
+    if (!participant) {
+      socket.emit('error', { message: '참가자가 아닙니다.' });
+      return;
+    }
+    
+    message.payload.participantId = participant.id;
+    message.payload.nickname = participant.nickname;
+    forwardMessageToRoom(room.id, message);
+  } catch (error) {
+    logWithTimestamp('탭 이벤트 처리 오류:', error.message);
   }
-  
-  message.payload.participantId = participant.id;
-  message.payload.nickname = participant.nickname;
-  forwardMessageToRoom(room.id, message);
 }
 
 function handleDisconnect(socketId, roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-  
-  const participantIndex = room.participants.findIndex(p => p.socketId === socketId);
-  if (participantIndex !== -1) {
-    const removedParticipant = room.participants[participantIndex];
-    room.participants.splice(participantIndex, 1);
+  try {
+    const room = rooms[roomId];
+    if (!room) return;
     
-    
-    logWithTimestamp(`참가자 제거: ${removedParticipant.nickname} (${socketId})`);
-    
-    // 참가자 목록 업데이트
-    sendParticipantUpdate(room.id);
-    
-    // 방이 비었으면 삭제
-    if (room.participants.length === 0) {
-      delete rooms[room.id];
-      logWithTimestamp(`방 삭제됨: ${room.id}`);
+    const participantIndex = room.participants.findIndex(p => p.socketId === socketId);
+    if (participantIndex !== -1) {
+      const removedParticipant = room.participants[participantIndex];
+      room.participants.splice(participantIndex, 1);
+      
+      // readyPlayers에서도 제거
+      if (room.readyPlayers && room.readyPlayers.has(removedParticipant.id)) {
+        room.readyPlayers.delete(removedParticipant.id);
+      }
+      
+      logWithTimestamp(`참가자 제거: ${removedParticipant.nickname} (${socketId})`);
+      
+      // 참가자 목록 업데이트
+      sendParticipantUpdate(room.id);
+      
+      // 방이 비었으면 삭제
+      if (room.participants.length === 0) {
+        delete rooms[room.id];
+        logWithTimestamp(`방 삭제됨: ${room.id}`);
+      }
     }
+  } catch (error) {
+    logWithTimestamp('연결 해제 처리 오류:', error.message);
   }
 }
 
 function forwardMessageToRoom(roomId, message) {
-  if (!message || !message.type) return;
-  io.to(roomId).emit('message', message);
+  try {
+    if (!message || !message.type) return;
+    io.to(roomId).emit('message', message);
+  } catch (error) {
+    logWithTimestamp('메시지 전달 오류:', error.message);
+  }
 }
 
 // 서버 시작
@@ -419,20 +476,22 @@ server.listen(PORT, HOST, () => {
   logWithTimestamp(`환경: ${process.env.NODE_ENV || 'development'}`);
   
   if (process.env.NODE_ENV === 'production') {
-    logWithTimestamp(`Railway URL: https://${process.env.RAILWAY_STATIC_URL || 'your-app'}.railway.app`);
+    logWithTimestamp(`Railway URL: https://chill-and-fresh-production.up.railway.app`);
   } else {
     logWithTimestamp(`로컬 IP: http://${ipAddress}:${PORT}`);
   }
 });
 
-// 예외 처리
+// 예외 처리 강화
 process.on('uncaughtException', (err) => {
-  logWithTimestamp('예기치 않은 오류:', err);
+  logWithTimestamp('예기치 않은 오류:', err.message);
+  logWithTimestamp('스택 트레이스:', err.stack);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logWithTimestamp('Unhandled Rejection:', reason);
+  logWithTimestamp('Unhandled Rejection at:', promise);
+  logWithTimestamp('Reason:', reason);
   process.exit(1);
 });
 
