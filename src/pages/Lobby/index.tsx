@@ -1,3 +1,4 @@
+// src/pages/Lobby/index.tsx (닉네임 문제 수정)
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +11,7 @@ import socketService from '../../services/socketService';
 const Lobby: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [joinMethod, setJoinMethod] = useState<'scan' | 'manual'>('scan'); // QR 스캔 기본값
+  const [joinMethod, setJoinMethod] = useState<'scan' | 'manual'>('scan');
   const [roomId, setRoomId] = useState(searchParams.get('roomId') || '');
   const [isJoining, setIsJoining] = useState(false);
   const [scanResult, setScanResult] = useState('');
@@ -71,7 +72,7 @@ const Lobby: React.FC = () => {
     setError('카메라 접근에 문제가 있습니다. 권한을 확인해주세요.');
   };
   
-  // 방 참여 처리 - 자동 닉네임 생성
+  // 방 참여 처리 - 닉네임 생성 로직 수정
   const handleJoinRoom = async (targetRoomId?: string) => {
     const finalRoomId = targetRoomId || roomId.trim();
     
@@ -84,11 +85,14 @@ const Lobby: React.FC = () => {
     try {
       console.log(`방 참여 시도: roomId=${finalRoomId}`);
       
-      // 1. 스토어 상태 업데이트 (자동 닉네임으로)
-      joinRoom(finalRoomId, ''); // 빈 닉네임으로 초기화
+      // 1. 임시 닉네임 생성 (서버에서 정확한 닉네임을 받을 예정)
+      const tempNickname = `PT-${Math.floor(Math.random() * 1000)}`;
       
-      // 2. 소켓 연결 초기화 (참가자 모드) - 서버에서 닉네임 자동 생성
-      const success = await socketService.initSocket(finalRoomId, false, '');
+      // 2. 스토어 상태 업데이트 (임시 닉네임으로)
+      joinRoom(finalRoomId, tempNickname);
+      
+      // 3. 소켓 연결 초기화 (참가자 모드) - 서버에서 닉네임 자동 생성
+      const success = await socketService.initSocket(finalRoomId, false, tempNickname);
       
       if (!success) {
         throw new Error('소켓 연결에 실패했습니다.');
@@ -97,7 +101,7 @@ const Lobby: React.FC = () => {
       setConnectionStatus('connected');
       console.log('소켓 연결 성공 - JOIN_REQUEST는 자동으로 전송됨');
       
-      // 3. 대기 상태로 전환
+      // 4. 대기 상태로 전환
       setWaitingForGame(true);
       
       // 성공 시 진동 피드백
@@ -352,7 +356,7 @@ const Lobby: React.FC = () => {
         </motion.div>
       )}
       
-<AnimatePresence mode="wait">
+      <AnimatePresence mode="wait">
         {joinMethod === 'scan' ? (
           <motion.div
             key="qr-scanner"

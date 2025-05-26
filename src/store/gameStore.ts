@@ -1,4 +1,4 @@
-// src/store/gameStore.ts (참가자 연결 문제 해결)
+// src/store/gameStore.ts (닉네임 찾기 로직 수정)
 import { create } from 'zustand';
 
 export interface Participant {
@@ -105,7 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       participantNumber: 0, // 서버에서 결정됨
       participants: [], // 서버에서 받을 예정
       myParticipantId: tempId,
-      myNickname: nickname,
+      myNickname: nickname, // 임시 닉네임 저장
     });
   },
   
@@ -144,10 +144,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ participants: updatedParticipants });
   },
   
-  // 서버에서 받은 참가자 목록으로 동기화 (완전히 수정)
+  // 서버에서 받은 참가자 목록으로 동기화 (수정됨)
   setParticipants: (serverParticipants) => {
     console.log('setParticipants 호출:', serverParticipants);
-    const { myNickname, isHost: currentIsHost } = get();
+    const { myNickname, isHost: currentIsHost, myParticipantId: currentId } = get();
     
     // 번호가 없는 참가자에게 번호 부여
     const participantsWithNumbers = serverParticipants.map((p, index) => ({
@@ -168,10 +168,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ participants: participantsWithNumbers });
       }
     } else {
-      // 참가자인 경우: 닉네임으로 내 정보 찾기
-      const myParticipant = participantsWithNumbers.find(p => 
-        p.nickname === myNickname && !p.isHost
-      );
+      // 참가자인 경우: ID로 먼저 찾고, 없으면 닉네임으로 찾기
+      let myParticipant = participantsWithNumbers.find(p => p.id === currentId);
+      
+      if (!myParticipant) {
+        // ID로 찾지 못했으면 닉네임으로 찾기 (또는 가장 최근 참가자)
+        myParticipant = participantsWithNumbers.find(p => 
+          !p.isHost && (
+            p.nickname === myNickname || 
+            p.nickname.startsWith('PT-') || 
+            p.id.includes('participant')
+          )
+        );
+      }
       
       if (myParticipant) {
         console.log('내 참가자 정보 발견:', myParticipant);
@@ -179,10 +188,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
           participants: participantsWithNumbers,
           myParticipantId: myParticipant.id,
           participantNumber: myParticipant.number,
+          myNickname: myParticipant.nickname, // 서버에서 받은 닉네임으로 업데이트
           isHost: myParticipant.isHost,
         });
       } else {
-        console.log('내 참가자 정보를 찾을 수 없음. 닉네임:', myNickname);
+        console.log('내 참가자 정보를 찾을 수 없음. 저장된 닉네임:', myNickname, '현재 ID:', currentId);
         // 목록은 업데이트하되, 내 정보는 유지
         set({ participants: participantsWithNumbers });
       }
