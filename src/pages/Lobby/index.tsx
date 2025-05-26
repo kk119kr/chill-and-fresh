@@ -10,9 +10,8 @@ import socketService from '../../services/socketService';
 const Lobby: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [joinMethod, setJoinMethod] = useState<'scan' | 'manual'>('manual');
+  const [joinMethod, setJoinMethod] = useState<'scan' | 'manual'>('scan'); // QR 스캔 기본값
   const [roomId, setRoomId] = useState(searchParams.get('roomId') || '');
-  const [nickname, setNickname] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [scanResult, setScanResult] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -22,28 +21,36 @@ const Lobby: React.FC = () => {
   // Zustand 스토어에서 필요한 상태와 액션 가져오기
   const { gameState, participants, joinRoom, myParticipantId } = useGameStore();
   
-  // QR 코드 스캔 결과 처리
+  // URL에 roomId가 있으면 자동으로 참여 시도
+  useEffect(() => {
+    const urlRoomId = searchParams.get('roomId');
+    if (urlRoomId && !waitingForGame && !isJoining) {
+      setRoomId(urlRoomId);
+      handleJoinRoom(urlRoomId);
+    }
+  }, [searchParams]);
+  
+  // QR 코드 스캔 결과 처리 - 바로 입장하도록 수정
   const handleScan = (data: string) => {
     try {
-      // URL에서 roomId 파라미터 추출
       const url = new URL(data);
       const roomIdParam = url.searchParams.get('roomId');
       
       if (roomIdParam) {
         setRoomId(roomIdParam);
-        setScanResult(`방 ID: ${roomIdParam}`);
-        // 스캔 성공 시 수동 입력 모드로 전환
-        setJoinMethod('manual');
+        setScanResult(`방 ID: ${roomIdParam} - 입장 중...`);
         
         // 성공적인 스캔 시 진동 피드백 (모바일)
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
+        
+        // 바로 방 참여 시도
+        handleJoinRoom(roomIdParam);
       } else {
         setScanResult('유효하지 않은 QR 코드입니다');
         setError('유효하지 않은 QR 코드입니다');
         
-        // 실패 시 짧은 진동 패턴 (경고)
         if (navigator.vibrate) {
           navigator.vibrate([20, 50, 20]);
         }
@@ -52,7 +59,6 @@ const Lobby: React.FC = () => {
       setScanResult('유효하지 않은 URL입니다');
       setError('유효하지 않은 URL입니다');
       
-      // 실패 시 짧은 진동 패턴 (경고)
       if (navigator.vibrate) {
         navigator.vibrate([20, 50, 20]);
       }
@@ -65,22 +71,24 @@ const Lobby: React.FC = () => {
     setError('카메라 접근에 문제가 있습니다. 권한을 확인해주세요.');
   };
   
-  // 방 참여 처리 - 수정된 버전
-  const handleJoinRoom = async () => {
-    if (!roomId.trim() || !nickname.trim() || isJoining) return;
+  // 방 참여 처리 - 자동 닉네임 생성
+  const handleJoinRoom = async (targetRoomId?: string) => {
+    const finalRoomId = targetRoomId || roomId.trim();
+    
+    if (!finalRoomId || isJoining) return;
     
     setIsJoining(true);
     setError(null);
     setConnectionStatus('connecting');
     
     try {
-      console.log(`방 참여 시도: roomId=${roomId}, nickname=${nickname}`);
+      console.log(`방 참여 시도: roomId=${finalRoomId}`);
       
-      // 1. 스토어 상태 업데이트 (먼저 수행)
-      joinRoom(roomId, nickname);
+      // 1. 스토어 상태 업데이트 (자동 닉네임으로)
+      joinRoom(finalRoomId, ''); // 빈 닉네임으로 초기화
       
-      // 2. 소켓 연결 초기화 (참가자 모드) - 닉네임도 함께 전달
-      const success = await socketService.initSocket(roomId, false, nickname);
+      // 2. 소켓 연결 초기화 (참가자 모드) - 서버에서 닉네임 자동 생성
+      const success = await socketService.initSocket(finalRoomId, false, '');
       
       if (!success) {
         throw new Error('소켓 연결에 실패했습니다.');
@@ -104,7 +112,6 @@ const Lobby: React.FC = () => {
       setWaitingForGame(false);
       setConnectionStatus('error');
       
-      // 실패 시 진동 패턴 (경고)
       if (navigator.vibrate) {
         navigator.vibrate([20, 100, 20]);
       }
@@ -115,23 +122,20 @@ const Lobby: React.FC = () => {
   useEffect(() => {
     console.log('게임 상태 변화:', gameState.status, gameState.type);
     
-    // 게임이 시작되면 해당 게임 화면으로 이동
     if (gameState.status === 'running' && gameState.type) {
       console.log(`게임 화면으로 이동: /${gameState.type}`);
       navigate(`/${gameState.type}`);
     }
   }, [gameState.status, gameState.type, navigate]);
   
-  // 참가자 목록 변화 감지 - 수정된 버전
+  // 참가자 목록 변화 감지
   useEffect(() => {
     console.log('참가자 목록 변화:', participants);
     console.log('내 참가자 ID:', myParticipantId);
     
     if (isJoining && participants.length > 0) {
-      // 자신이 참가자 목록에 포함되어 있는지 확인
       const myParticipant = participants.find(p => 
-        (p.nickname === nickname && !p.isHost) || // 닉네임으로 찾기
-        p.id === myParticipantId // ID로 찾기
+        p.id === myParticipantId || (!p.isHost && p.id.includes('participant'))
       );
       
       if (myParticipant) {
@@ -140,7 +144,7 @@ const Lobby: React.FC = () => {
         setConnectionStatus('connected');
       }
     }
-  }, [participants, isJoining, nickname, myParticipantId]);
+  }, [participants, isJoining, myParticipantId]);
   
   // 연결 상태 모니터링
   useEffect(() => {
@@ -160,18 +164,17 @@ const Lobby: React.FC = () => {
     return () => clearInterval(interval);
   }, [waitingForGame, isJoining]);
   
-  // 컴포넌트 언마운트 시 소켓 연결 해제 - 수정된 버전
-useEffect(() => {
-  return () => {
-    // 오직 게임이 시작되지 않은 상태에서만 연결 해제
-    if (gameState.status === 'waiting') {
-      console.log('컴포넌트 언마운트 - 소켓 연결 해제');
-      socketService.disconnect();
-    } else {
-      console.log('게임 진행 중 - 소켓 연결 유지');
-    }
-  };
-}, [gameState.status]); // waitingForGame 의존성 제거
+  // 컴포넌트 언마운트 시 소켓 연결 해제
+  useEffect(() => {
+    return () => {
+      if (gameState.status === 'waiting') {
+        console.log('컴포넌트 언마운트 - 소켓 연결 해제');
+        socketService.disconnect();
+      } else {
+        console.log('게임 진행 중 - 소켓 연결 유지');
+      }
+    };
+  }, [gameState.status]);
 
   // 나가기 처리
   const handleLeave = () => {
@@ -181,13 +184,26 @@ useEffect(() => {
     setConnectionStatus('idle');
     socketService.disconnect();
     
-    // 스토어 상태도 초기화
     const { leaveRoom } = useGameStore.getState();
     leaveRoom();
+    
+    navigate('/');
   };
 
   // 대기 화면이 표시되고 있는 경우
   if (waitingForGame) {
+    // 내 참가자 정보 찾기
+    const myParticipant = participants.find(p => 
+      p.id === myParticipantId || (!p.isHost && p.id.includes('participant'))
+    );
+    
+    // 방장을 맨 위로, 나머지를 번호순으로 정렬
+    const sortedParticipants = [...participants].sort((a, b) => {
+      if (a.isHost) return -1;
+      if (b.isHost) return 1;
+      return a.number - b.number;
+    });
+    
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
         <motion.div
@@ -233,9 +249,11 @@ useEffect(() => {
             <p className="text-lg font-mono mb-2">
               방 ID: <span className="font-bold">{roomId}</span>
             </p>
-            <p className="text-sm text-gray-600">
-              닉네임: <span className="font-semibold">{nickname}</span>
-            </p>
+            {myParticipant && (
+              <p className="text-sm text-blue-600">
+                내 닉네임: <span className="font-semibold">{myParticipant.nickname}</span>
+              </p>
+            )}
           </div>
           
           <p className="text-base text-gray-600 mb-8">
@@ -248,11 +266,11 @@ useEffect(() => {
                 참가자 목록 ({participants.length}명)
               </h3>
               <div className="bg-gray-50 border-2 border-black p-4 max-h-48 overflow-y-auto">
-                {participants.map((participant) => (
+                {sortedParticipants.map((participant) => (
                   <motion.div 
                     key={participant.id} 
                     className={`flex items-center justify-between py-2 px-3 mb-2 last:mb-0 border
-                      ${participant.id === myParticipantId || participant.nickname === nickname 
+                      ${participant.id === myParticipantId
                         ? 'bg-blue-50 border-blue-200' 
                         : 'bg-white border-gray-200'}`}
                     initial={{ opacity: 0, x: -10 }}
@@ -260,8 +278,8 @@ useEffect(() => {
                     transition={{ duration: 0.3 }}
                   >
                     <span className="font-mono">
-                      #{participant.number} {participant.nickname}
-                      {(participant.id === myParticipantId || participant.nickname === nickname) && 
+                      {participant.nickname}
+                      {participant.id === myParticipantId && 
                         <span className="ml-2 text-xs text-blue-600">(나)</span>
                       }
                     </span>
@@ -386,22 +404,12 @@ useEffect(() => {
               onChange={(e) => setRoomId(e.target.value.toUpperCase())}
               placeholder="방 ID를 입력하세요"
               fullWidth
-              className="mb-4"
-            />
-            
-            <Input
-              label="닉네임 (최대 10자)"
-              maxLength={10}
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="닉네임을 입력하세요"
-              fullWidth
               className="mb-6"
             />
             
             <Button
-              onClick={handleJoinRoom}
-              disabled={!roomId.trim() || !nickname.trim() || isJoining}
+              onClick={() => handleJoinRoom()}
+              disabled={!roomId.trim() || isJoining}
               fullWidth
               size="large"
               isLoading={isJoining}
