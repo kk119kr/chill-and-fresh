@@ -112,13 +112,7 @@ class SocketService {
             this.registerEventHandlers();
             this.startHeartbeat(); // 연결 유지 시작
             
-            // 참가자인 경우 JOIN_REQUEST 자동 전송
-            if (!this.isHost && !this.joinRequestSent) {
-              setTimeout(() => {
-                this.joinRoom(this.nickname);
-              }, 100);
-            }
-            
+
             resolve(true);
           });
           
@@ -172,11 +166,11 @@ class SocketService {
   
   // 연결 유지를 위한 하트비트
   private startHeartbeat(): void {
-    this.heartbeatInterval = window.setInterval(() => {
-      if (this.socket && this.socket.connected) {
-        this.socket.emit('ping');
-      }
-    }, 25000); // 25초마다 핑
+this.heartbeatInterval = window.setInterval(() => {
+  if (this.socket && this.socket.connected) {
+    this.socket.emit('ping');
+  }
+}, 45000); // 45초로 변경
   }
   
   private stopHeartbeat(): void {

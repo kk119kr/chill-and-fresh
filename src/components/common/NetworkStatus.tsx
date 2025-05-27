@@ -29,7 +29,7 @@ const NetworkStatus: React.FC = () => {
       }
     };
     
-    const interval = setInterval(checkStatus, 1000);
+const interval = setInterval(checkStatus, 5000); // 5초로 변경
     
     return () => clearInterval(interval);
   }, [visible]);

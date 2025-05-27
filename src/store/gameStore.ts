@@ -168,19 +168,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ participants: participantsWithNumbers });
       }
     } else {
-      // 참가자인 경우: ID로 먼저 찾고, 없으면 닉네임으로 찾기
-      let myParticipant = participantsWithNumbers.find(p => p.id === currentId);
-      
-      if (!myParticipant) {
-        // ID로 찾지 못했으면 닉네임으로 찾기 (또는 가장 최근 참가자)
-        myParticipant = participantsWithNumbers.find(p => 
-          !p.isHost && (
-            p.nickname === myNickname || 
-            p.nickname.startsWith('PT-') || 
-            p.id.includes('participant')
-          )
-        );
-      }
+// 더 안정적인 참가자 식별 로직
+let myParticipant = participantsWithNumbers.find(p => p.id === currentId);
+
+if (!myParticipant && !currentIsHost) {
+  // 가장 최근 추가된 비호스트 참가자로 설정
+  const nonHostParticipants = participantsWithNumbers.filter(p => !p.isHost);
+  myParticipant = nonHostParticipants[nonHostParticipants.length - 1];
+}
       
       if (myParticipant) {
         console.log('내 참가자 정보 발견:', myParticipant);

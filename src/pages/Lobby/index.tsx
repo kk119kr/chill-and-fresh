@@ -23,13 +23,14 @@ const Lobby: React.FC = () => {
   const { gameState, participants, joinRoom, myParticipantId } = useGameStore();
   
   // URL에 roomId가 있으면 자동으로 참여 시도
-  useEffect(() => {
-    const urlRoomId = searchParams.get('roomId');
-    if (urlRoomId && !waitingForGame && !isJoining) {
-      setRoomId(urlRoomId);
-      handleJoinRoom(urlRoomId);
-    }
-  }, [searchParams]);
+useEffect(() => {
+  const urlRoomId = searchParams.get('roomId');
+  if (urlRoomId && !waitingForGame && !isJoining && !roomId) {
+    setRoomId(urlRoomId);
+    const timer = setTimeout(() => handleJoinRoom(urlRoomId), 300);
+    return () => clearTimeout(timer);
+  }
+}, [searchParams, waitingForGame, isJoining, roomId]);
   
   // QR 코드 스캔 결과 처리 - 바로 입장하도록 수정
   const handleScan = (data: string) => {
@@ -164,7 +165,7 @@ const Lobby: React.FC = () => {
       }
     };
     
-    const interval = setInterval(checkConnectionStatus, 2000);
+    const interval = setInterval(checkConnectionStatus, 5000); // 5초로 변경
     return () => clearInterval(interval);
   }, [waitingForGame, isJoining]);
   

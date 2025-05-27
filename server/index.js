@@ -11,7 +11,9 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const isDev = process.env.NODE_ENV !== 'production';
 const logWithTimestamp = (message, data = null) => {
+  if (!isDev) return;
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] ${message}`);
   if (data) console.log(JSON.stringify(data, null, 2));
@@ -40,9 +42,9 @@ const io = new Server(server, {
     credentials: true,
   },
   transports: ['websocket', 'polling'],
-  pingTimeout: 30000,
-  pingInterval: 10000,
-  connectTimeout: 30000,
+pingTimeout: 60000,
+pingInterval: 25000,
+connectTimeout: 45000,
   allowEIO3: true,
 });
 
