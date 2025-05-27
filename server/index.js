@@ -42,9 +42,9 @@ const io = new Server(server, {
     credentials: true,
   },
   transports: ['websocket', 'polling'],
-pingTimeout: 60000,
-pingInterval: 25000,
-connectTimeout: 45000,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000,
   allowEIO3: true,
 });
 
@@ -54,16 +54,8 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// 정적 파일 서빙 설정
-if (process.env.NODE_ENV === 'production') {
-  const possiblePaths = [
-    path.join(__dirname, 'public'),
-    path.join(__dirname, '..', 'dist'),
-    path.join(process.cwd(), 'dist'),
-    path.join(process.cwd(), 'server', 'public'),
-  ];
-  
-  let publicPath = null;
+// 정적 파일 서빙 설정 - 수정됨
+let publicPath = null; // 변수 선언 추가
 
 if (process.env.NODE_ENV === 'production') {
   // Railway에서 빌드된 파일 경로들을 순서대로 확인
@@ -126,7 +118,6 @@ if (process.env.NODE_ENV === 'production') {
     }
   }
 }
-}
 
 // 방 목록 - 수정된 구조
 const rooms = {};
@@ -143,7 +134,6 @@ const getLocalIpAddress = () => {
   return '127.0.0.1';
 };
 
-// API 엔드포인트
 // API 엔드포인트들...
 app.get('/api/health', (req, res) => {
   res.status(200).json({
