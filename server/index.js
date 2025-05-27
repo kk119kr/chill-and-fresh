@@ -142,18 +142,22 @@ app.get('/', (req, res) => {
 
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res, next) => {
+    // API와 소켓 경로는 제외
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
       return next();
     }
+    
+    // 정적 파일 요청은 기본 처리
     if (path.extname(req.path)) {
-      return res.status(404).send('File not found');
+      return next();
     }
     
+    // 모든 SPA 라우트를 index.html로 fallback
     const indexPath = path.join(__dirname, 'public', 'index.html');
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
-      res.status(404).json({ error: 'Page not found' });
+      res.status(404).json({ error: 'Frontend build not found' });
     }
   });
 }
