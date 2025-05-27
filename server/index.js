@@ -218,7 +218,7 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// 소켓 연결 이벤트 처리
+// 소켓 연결 이벤트 처리 부분 수정
 io.on('connection', (socket) => {
   logWithTimestamp('새로운 연결:', socket.id);
   
@@ -233,7 +233,7 @@ io.on('connection', (socket) => {
   socket.join(roomId);
   logWithTimestamp(`소켓 ${socket.id}이(가) 방 ${roomId}에 조인함`);
   
-  // 호스트인 경우 방 생성 또는 업데이트
+  // 호스트인 경우만 자동으로 방 생성/참가 처리
   if (isHost === 'true') {
     if (!rooms[roomId]) {
       rooms[roomId] = {

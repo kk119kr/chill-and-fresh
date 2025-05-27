@@ -1,5 +1,5 @@
-// src/pages/Lobby/index.tsx (닉네임 문제 수정)
-import React, { useState, useEffect } from 'react';
+// src/pages/Lobby/index.tsx (QR 스캔 자동 입장 문제 해결)
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCodeScanner from '../../components/common/QRCodeScanner';
@@ -12,29 +12,36 @@ const Lobby: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [joinMethod, setJoinMethod] = useState<'scan' | 'manual'>('scan');
-  const [roomId, setRoomId] = useState(searchParams.get('roomId') || '');
+  const [roomId, setRoomId] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [scanResult, setScanResult] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [waitingForGame, setWaitingForGame] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const hasAttemptedJoin = useRef(false);
   
-  // Zustand 스토어에서 필요한 상태와 액션 가져오기
   const { gameState, participants, joinRoom, myParticipantId } = useGameStore();
   
-  // URL에 roomId가 있으면 자동으로 참여 시도
-useEffect(() => {
-  const urlRoomId = searchParams.get('roomId');
-  if (urlRoomId && !waitingForGame && !isJoining && !roomId) {
-    setRoomId(urlRoomId);
-    const timer = setTimeout(() => handleJoinRoom(urlRoomId), 300);
-    return () => clearTimeout(timer);
-  }
-}, [searchParams, waitingForGame, isJoining, roomId]);
+  // URL에 roomId가 있으면 자동으로 참여 시도 (수정됨)
+  useEffect(() => {
+    const urlRoomId = searchParams.get('roomId');
+    if (urlRoomId && !hasAttemptedJoin.current && !waitingForGame && !isJoining) {
+      console.log('URL에서 roomId 발견:', urlRoomId);
+      hasAttemptedJoin.current = true;
+      setRoomId(urlRoomId);
+      setJoinMethod('manual'); // QR 스캔이 아닌 수동 모드로 전환
+      
+      // 약간의 딜레이 후 자동 입장
+      setTimeout(() => {
+        handleJoinRoom(urlRoomId);
+      }, 100);
+    }
+  }, [searchParams, waitingForGame, isJoining]);
   
-  // QR 코드 스캔 결과 처리 - 바로 입장하도록 수정
+  // QR 코드 스캔 결과 처리
   const handleScan = (data: string) => {
     try {
+      console.log('QR 스캔 데이터:', data);
       const url = new URL(data);
       const roomIdParam = url.searchParams.get('roomId');
       
@@ -42,7 +49,6 @@ useEffect(() => {
         setRoomId(roomIdParam);
         setScanResult(`방 ID: ${roomIdParam} - 입장 중...`);
         
-        // 성공적인 스캔 시 진동 피드백 (모바일)
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
@@ -58,6 +64,7 @@ useEffect(() => {
         }
       }
     } catch (error) {
+      console.error('QR 스캔 오류:', error);
       setScanResult('유효하지 않은 URL입니다');
       setError('유효하지 않은 URL입니다');
       
@@ -67,17 +74,19 @@ useEffect(() => {
     }
   };
   
-  // QR 스캔 에러 처리
   const handleScanError = (error: string) => {
     console.error('QR 코드 스캔 오류:', error);
     setError('카메라 접근에 문제가 있습니다. 권한을 확인해주세요.');
   };
   
-  // 방 참여 처리 - 닉네임 생성 로직 수정
+  // 방 참여 처리 (수정됨)
   const handleJoinRoom = async (targetRoomId?: string) => {
     const finalRoomId = targetRoomId || roomId.trim();
     
-    if (!finalRoomId || isJoining) return;
+    if (!finalRoomId || isJoining) {
+      console.log('참여 불가:', { finalRoomId, isJoining });
+      return;
+    }
     
     setIsJoining(true);
     setError(null);
@@ -86,26 +95,37 @@ useEffect(() => {
     try {
       console.log(`방 참여 시도: roomId=${finalRoomId}`);
       
-      // 1. 임시 닉네임 생성 (서버에서 정확한 닉네임을 받을 예정)
+      // 1. 임시 닉네임 생성
       const tempNickname = `PT-${Math.floor(Math.random() * 1000)}`;
       
-      // 2. 스토어 상태 업데이트 (임시 닉네임으로)
+      // 2. 스토어 상태 업데이트
       joinRoom(finalRoomId, tempNickname);
       
-      // 3. 소켓 연결 초기화 (참가자 모드) - 서버에서 닉네임 자동 생성
+      // 3. 소켓 연결 초기화
       const success = await socketService.initSocket(finalRoomId, false, tempNickname);
       
       if (!success) {
         throw new Error('소켓 연결에 실패했습니다.');
       }
       
+      console.log('소켓 연결 성공');
       setConnectionStatus('connected');
-      console.log('소켓 연결 성공 - JOIN_REQUEST는 자동으로 전송됨');
       
-      // 4. 대기 상태로 전환
+      // 4. JOIN_REQUEST 명시적으로 전송
+      setTimeout(() => {
+        console.log('JOIN_REQUEST 전송');
+        socketService.sendMessage({
+          type: 'JOIN_REQUEST',
+          payload: {
+            roomId: finalRoomId,
+            nickname: tempNickname,
+          },
+        });
+      }, 500);
+      
+      // 5. 대기 상태로 전환
       setWaitingForGame(true);
       
-      // 성공 시 진동 피드백
       if (navigator.vibrate) {
         navigator.vibrate([30, 50, 30]);
       }
@@ -116,6 +136,7 @@ useEffect(() => {
       setIsJoining(false);
       setWaitingForGame(false);
       setConnectionStatus('error');
+      hasAttemptedJoin.current = false;
       
       if (navigator.vibrate) {
         navigator.vibrate([20, 100, 20]);
@@ -133,15 +154,26 @@ useEffect(() => {
     }
   }, [gameState.status, gameState.type, navigate]);
   
-  // 참가자 목록 변화 감지
+  // 참가자 목록 변화 감지 (수정됨)
   useEffect(() => {
     console.log('참가자 목록 변화:', participants);
     console.log('내 참가자 ID:', myParticipantId);
     
     if (isJoining && participants.length > 0) {
-      const myParticipant = participants.find(p => 
-        p.id === myParticipantId || (!p.isHost && p.id.includes('participant'))
-      );
+      // 참가자 목록에서 내 정보 찾기
+      const myParticipant = participants.find(p => {
+        // ID로 먼저 찾기
+        if (p.id === myParticipantId) return true;
+        
+        // 가장 최근에 추가된 비호스트 참가자 찾기
+        if (!p.isHost && waitingForGame) {
+          const nonHostParticipants = participants.filter(part => !part.isHost);
+          const lastParticipant = nonHostParticipants[nonHostParticipants.length - 1];
+          return p.id === lastParticipant?.id;
+        }
+        
+        return false;
+      });
       
       if (myParticipant) {
         console.log('참가 완료:', myParticipant);
@@ -149,7 +181,7 @@ useEffect(() => {
         setConnectionStatus('connected');
       }
     }
-  }, [participants, isJoining, myParticipantId]);
+  }, [participants, isJoining, myParticipantId, waitingForGame]);
   
   // 연결 상태 모니터링
   useEffect(() => {
@@ -161,32 +193,32 @@ useEffect(() => {
           setIsJoining(false);
           setWaitingForGame(false);
           setConnectionStatus('error');
+          hasAttemptedJoin.current = false;
         }
       }
     };
     
-    const interval = setInterval(checkConnectionStatus, 5000); // 5초로 변경
+    const interval = setInterval(checkConnectionStatus, 5000);
     return () => clearInterval(interval);
   }, [waitingForGame, isJoining]);
   
-  // 컴포넌트 언마운트 시 소켓 연결 해제
+  // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
-      if (gameState.status === 'waiting') {
+      if (gameState.status === 'waiting' && !waitingForGame) {
         console.log('컴포넌트 언마운트 - 소켓 연결 해제');
         socketService.disconnect();
-      } else {
-        console.log('게임 진행 중 - 소켓 연결 유지');
+        hasAttemptedJoin.current = false;
       }
     };
-  }, [gameState.status]);
+  }, [gameState.status, waitingForGame]);
 
-  // 나가기 처리
   const handleLeave = () => {
     setWaitingForGame(false);
     setIsJoining(false);
     setError(null);
     setConnectionStatus('idle');
+    hasAttemptedJoin.current = false;
     socketService.disconnect();
     
     const { leaveRoom } = useGameStore.getState();
@@ -195,14 +227,12 @@ useEffect(() => {
     navigate('/');
   };
 
-  // 대기 화면이 표시되고 있는 경우
+  // 대기 화면
   if (waitingForGame) {
-    // 내 참가자 정보 찾기
     const myParticipant = participants.find(p => 
       p.id === myParticipantId || (!p.isHost && p.id.includes('participant'))
     );
     
-    // 방장을 맨 위로, 나머지를 번호순으로 정렬
     const sortedParticipants = [...participants].sort((a, b) => {
       if (a.isHost) return -1;
       if (b.isHost) return 1;
@@ -221,7 +251,6 @@ useEffect(() => {
             게임 대기 중
           </h1>
           
-          {/* 연결 상태 표시 */}
           <div className="flex items-center justify-center mb-6">
             <motion.div
               className={`w-3 h-3 mr-2 ${
@@ -313,9 +342,9 @@ useEffect(() => {
     );
   }
 
+  // 입장 화면
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4 relative overflow-hidden">
-      {/* 이전 화면 버튼 */}
       <motion.button
         onClick={() => navigate('/')}
         className="absolute top-4 left-4 w-8 h-8 bg-white border border-black 

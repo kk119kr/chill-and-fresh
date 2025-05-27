@@ -73,11 +73,10 @@ class SocketService {
     this.connectionStatus = 'connecting';
     this.connectionErrorMessage = '';
     this.reconnectAttempts = 0;
-    this.joinRequestSent = false; // 초기화
+    this.joinRequestSent = false;
     
     console.log(`소켓 연결 시도: roomId=${roomId}, isHost=${isHost}, nickname=${this.nickname}`);
     
-    // 기존 소켓 정리
     this.cleanup();
     
     try {
@@ -95,14 +94,13 @@ class SocketService {
             reconnectionAttempts: this.maxReconnectAttempts,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 3000,
-            timeout: 10000, // 줄임
+            timeout: 10000,
             transports: ['polling', 'websocket'],
             forceNew: true,
             autoConnect: true,
             withCredentials: false,
           });
           
-          // 연결 성공
           this.socket.on('connect', () => {
             console.log('소켓 연결 성공:', this.socket?.id);
             this.connectionStatus = 'connected';
@@ -110,9 +108,9 @@ class SocketService {
             this.connectionErrorMessage = '';
             
             this.registerEventHandlers();
-            this.startHeartbeat(); // 연결 유지 시작
+            this.startHeartbeat();
             
-
+            // 호스트가 아닌 경우 JOIN_REQUEST는 Lobby 컴포넌트에서 명시적으로 전송
             resolve(true);
           });
           
