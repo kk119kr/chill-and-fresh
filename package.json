@@ -12,8 +12,8 @@
     "dev:host": "concurrently \"npm run dev\" \"npm run start:server\"",
     
     "build:railway": "npm run build && npm run copy-build && npm run verify-build",
-    "copy-build": "mkdir -p server/public && cp -r dist/* server/public/ && echo 'Build files copied to server/public/'",
-    "verify-build": "ls -la server/public/ && echo 'Verifying index.html:' && ls -la server/public/index.html 2>/dev/null || echo 'index.html not found'",
+    "copy-build": "mkdir -p server/public && cp -r dist/* server/public/ && echo 'Build files copied to server/public/' && ls -la server/public/",
+    "verify-build": "echo 'Verifying build files:' && find server/public -type f -name '*.html' -o -name '*.js' -o -name '*.css' | head -10",
     "start": "npm run build:railway && node server/index.js",
     "railway:start": "node server/index.js",
     

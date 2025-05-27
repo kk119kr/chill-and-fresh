@@ -64,17 +64,38 @@ if (process.env.NODE_ENV === 'production') {
   ];
   
   let publicPath = null;
+
+if (process.env.NODE_ENV === 'production') {
+  // Railway에서 빌드된 파일 경로들을 순서대로 확인
+  const possiblePaths = [
+    path.join(__dirname, 'public'),           // server/public (빌드 복사된 위치)
+    path.join(__dirname, '..', 'dist'),       // 프로젝트 루트의 dist
+    path.join(process.cwd(), 'dist'),         // 현재 작업 디렉터리의 dist
+    path.join(process.cwd(), 'server', 'public'), // 절대 경로
+  ];
+  
+  logWithTimestamp('정적 파일 경로 확인 중...');
   
   for (const testPath of possiblePaths) {
+    logWithTimestamp(`테스트 경로: ${testPath}`);
     const testIndexPath = path.join(testPath, 'index.html');
-    if (fs.existsSync(testIndexPath)) {
-      publicPath = testPath;
-      break;
+    
+    if (fs.existsSync(testPath)) {
+      logWithTimestamp(`경로 존재: ${testPath}`);
+      const files = fs.readdirSync(testPath);
+      logWithTimestamp(`파일 목록:`, files);
+      
+      if (fs.existsSync(testIndexPath)) {
+        publicPath = testPath;
+        logWithTimestamp(`index.html 발견! 사용할 경로: ${publicPath}`);
+        break;
+      }
+    } else {
+      logWithTimestamp(`경로 없음: ${testPath}`);
     }
   }
   
   if (publicPath) {
-    logWithTimestamp(`정적 파일 경로: ${publicPath}`);
     app.use(express.static(publicPath, {
       maxAge: '1d',
       setHeaders: (res, path) => {
@@ -83,7 +104,28 @@ if (process.env.NODE_ENV === 'production') {
         }
       }
     }));
+    logWithTimestamp(`정적 파일 서빙 설정 완료: ${publicPath}`);
+  } else {
+    logWithTimestamp('⚠️ 정적 파일 경로를 찾을 수 없습니다!');
+    
+    // 현재 디렉터리 구조 로깅
+    const currentDir = process.cwd();
+    logWithTimestamp(`현재 작업 디렉터리: ${currentDir}`);
+    try {
+      const rootFiles = fs.readdirSync(currentDir);
+      logWithTimestamp(`루트 파일들:`, rootFiles);
+      
+      // server 디렉터리 확인
+      const serverDir = path.join(currentDir, 'server');
+      if (fs.existsSync(serverDir)) {
+        const serverFiles = fs.readdirSync(serverDir);
+        logWithTimestamp(`server 디렉터리 파일들:`, serverFiles);
+      }
+    } catch (err) {
+      logWithTimestamp('디렉터리 읽기 오류:', err.message);
+    }
   }
+}
 }
 
 // 방 목록 - 수정된 구조
@@ -102,12 +144,15 @@ const getLocalIpAddress = () => {
 };
 
 // API 엔드포인트
+// API 엔드포인트들...
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     rooms: Object.keys(rooms).length,
     totalConnections: io.engine.clientsCount,
+    publicPath: publicPath || 'not found',
+    buildExists: publicPath ? fs.existsSync(path.join(publicPath, 'index.html')) : false,
   });
 });
 
@@ -128,22 +173,36 @@ app.get('/api/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// 루트 및 SPA 라우팅
+// 루트 및 SPA 라우팅 - 개선
 app.get('/', (req, res) => {
   if (process.env.NODE_ENV === 'production') {
-    const indexPath = path.join(__dirname, 'public', 'index.html');
-    if (fs.existsSync(indexPath)) {
+    if (publicPath) {
+      const indexPath = path.join(publicPath, 'index.html');
+      logWithTimestamp(`루트 요청 - index.html 서빙: ${indexPath}`);
       res.sendFile(indexPath);
     } else {
-      res.status(404).json({ error: 'Frontend build not found' });
+      logWithTimestamp('⚠️ 프런트엔드 빌드 파일이 없습니다');
+      res.status(503).json({ 
+        error: 'Frontend build not found',
+        message: '프런트엔드 빌드 파일을 찾을 수 없습니다. 빌드를 다시 실행해주세요.',
+        paths_checked: [
+          path.join(__dirname, 'public'),
+          path.join(__dirname, '..', 'dist'),
+          path.join(process.cwd(), 'dist'),
+          path.join(process.cwd(), 'server', 'public'),
+        ]
+      });
     }
   } else {
-    res.json({ message: 'Chill and Fresh 서버 실행 중' });
+    res.json({ message: 'Chill and Fresh 서버 실행 중 (개발 모드)' });
   }
 });
 
+// SPA 라우팅 개선
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res, next) => {
+    logWithTimestamp(`SPA 라우팅 요청: ${req.path}`);
+    
     // API와 소켓 경로는 제외
     if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
       return next();
@@ -155,11 +214,16 @@ if (process.env.NODE_ENV === 'production') {
     }
     
     // 모든 SPA 라우트를 index.html로 fallback
-    const indexPath = path.join(__dirname, 'public', 'index.html');
-    if (fs.existsSync(indexPath)) {
+    if (publicPath) {
+      const indexPath = path.join(publicPath, 'index.html');
+      logWithTimestamp(`SPA fallback - index.html 서빙: ${indexPath}`);
       res.sendFile(indexPath);
     } else {
-      res.status(404).json({ error: 'Frontend build not found' });
+      logWithTimestamp('⚠️ SPA fallback 실패 - 빌드 파일 없음');
+      res.status(503).json({ 
+        error: 'Frontend build not found for SPA routing',
+        path: req.path
+      });
     }
   });
 }
